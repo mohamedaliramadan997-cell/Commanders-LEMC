@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Master Record — Commanders LEMC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">COMMANDERS<br/>LEMC</div>
+      <div class="brand-sub">UAE Chapter Platform</div>
+      <nav>
+        <a href="index.html">Dashboard</a>
+        <a href="members.html" class="active">Master Record</a>
+        <a href="attendance.html">Attendance Tracker</a>
+        <a href="admin.html" data-admin-only>Admin — Review &amp; Approve</a>
+        <a href="intake.html" target="_blank">Intake Form ↗</a>
+      </nav>
+      <div class="who" id="who-box"></div>
+    </aside>
+
+    <main class="content">
+      <h1>Master Record</h1>
+      <p style="color:#5a5748; margin-top:-6px;">
+        Every member, one row each. <span data-admin-only>Click a row to edit.</span>
+        <span id="readonly-note" style="display:none;">You have read-only access.</span>
+      </p>
+
+      <div class="panel">
+        <div style="display:flex; gap:10px; align-items:center; margin-bottom: 14px; flex-wrap: wrap;">
+          <input id="search" placeholder="Search by name…" style="max-width:260px;" />
+          <select id="filter-level" style="max-width:200px;">
+            <option value="">All ranks</option>
+            <option>Full-Batch</option>
+            <option>Prospect</option>
+            <option>Hang-around</option>
+            <option>Honor Member</option>
+          </select>
+          <span style="flex:1;"></span>
+          <button class="gold" id="add-btn" data-admin-only>+ Add Member</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th><th>Rank</th><th>Title</th><th>City</th>
+                <th>Mobile</th><th>WhatsApp</th><th>Email</th><th>Bike</th>
+              </tr>
+            </thead>
+            <tbody id="members-body"><tr><td colspan="8">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Edit / Add drawer -->
+      <div class="panel" id="edit-panel" style="display:none;">
+        <div class="panel-title">MEMBER DETAILS</div>
+        <div class="form-grid" id="edit-form"></div>
+        <div style="margin-top:16px; display:flex; gap:10px;">
+          <button class="gold" id="save-btn">Save</button>
+          <button class="ghost" id="cancel-btn">Cancel</button>
+        </div>
+        <div id="edit-msg"></div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/members.js"></script>
+</body>
+</html>

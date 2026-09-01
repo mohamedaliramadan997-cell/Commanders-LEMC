@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin — Commanders LEMC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">COMMANDERS<br/>LEMC</div>
+      <div class="brand-sub">UAE Chapter Platform</div>
+      <nav>
+        <a href="index.html">Dashboard</a>
+        <a href="members.html">Master Record</a>
+        <a href="attendance.html">Attendance Tracker</a>
+        <a href="admin.html" class="active">Admin — Review &amp; Approve</a>
+        <a href="intake.html" target="_blank">Intake Form ↗</a>
+      </nav>
+      <div class="who" id="who-box"></div>
+    </aside>
+
+    <main class="content">
+      <h1>Admin — Review &amp; Approve</h1>
+      <div id="not-admin-msg" style="display:none;" class="msg msg-error">
+        This page is Admin-only. Ask the current Admin for access if you need it.
+      </div>
+
+      <div id="admin-body" style="display:none;">
+        <div class="panel">
+          <div class="panel-title">NEW INTAKE SUBMISSIONS</div>
+          <div id="submissions-list">Loading…</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">READY FOR PROMOTION APPROVAL</div>
+          <div id="promotions-list">Loading…</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">INVITE AN OFFICER</div>
+          <p style="color:#5a5748;">
+            Officers can't self-register. To give someone read-only access:
+            Supabase Dashboard → Authentication → Users → <strong>Add user</strong> →
+            enter their email, set a temporary password, and share it with them privately.
+            They'll get an "officer" role automatically (read-only) — see this page's
+            "Officers &amp; Roles" list below to confirm, or to promote someone to Admin.
+          </p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">OFFICERS &amp; ROLES</div>
+          <div id="profiles-list">Loading…</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>

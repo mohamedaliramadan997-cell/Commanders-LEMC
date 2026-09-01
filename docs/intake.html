@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Join Commanders LEMC — UAE Chapter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="public-wrap">
+    <div class="public-card">
+      <div class="public-header">
+        <div class="eyebrow">GOLD_BLACK_NATION</div>
+        <h1>Join the UAE Chapter</h1>
+        <div style="color:#5a5748; font-size: 13px;">Fill this out to start as a Hang-around. The Secretary will follow up.</div>
+      </div>
+
+      <form id="intake-form">
+        <div class="form-grid">
+          <div class="full"><label>Full Name *</label><input name="full_name" required /></div>
+          <div><label>City</label><input name="city" /></div>
+          <div><label>Neighborhood</label><input name="neighborhood" /></div>
+          <div><label>Mobile Number *</label><input name="mobile" required /></div>
+          <div><label>WhatsApp Number</label><input name="whatsapp" /></div>
+          <div class="full"><label>Email</label><input name="email" type="email" /></div>
+          <div><label>Date of Birth</label><input name="date_of_birth" type="date" /></div>
+          <div><label>Riding Experience</label><input name="riding_experience" placeholder="e.g. 5 years" /></div>
+          <div class="full"><label>Bike Model</label><input name="bike_model" /></div>
+          <div class="full"><label>Profession / Occupation</label><input name="profession" /></div>
+          <div><label>Emergency Contact — Name</label><input name="emergency_contact_name" /></div>
+          <div><label>Emergency Contact — Relation</label><input name="emergency_contact_relation" /></div>
+          <div class="full"><label>Emergency Contact — Mobile</label><input name="emergency_contact_mobile" /></div>
+        </div>
+        <button type="submit" class="gold" style="width:100%; margin-top:20px;">Submit</button>
+        <div id="msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from "./js/supabaseClient.js";
+
+    document.getElementById("intake-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById("msg");
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form).entries());
+      Object.keys(data).forEach((k) => { if (data[k] === "") data[k] = null; });
+
+      if (!data.full_name || !data.mobile) {
+        msg.innerHTML = `<div class="msg msg-error">Full name and mobile number are required.</div>`;
+        return;
+      }
+
+      const { error } = await supabase.from("intake_submissions").insert(data);
+      if (error) {
+        msg.innerHTML = `<div class="msg msg-error">${error.message}</div>`;
+        return;
+      }
+      form.style.display = "none";
+      msg.innerHTML = `<div class="msg msg-ok">Thanks! Your submission has been sent to the Secretary for review.</div>`;
+    });
+  </script>
+</body>
+</html>

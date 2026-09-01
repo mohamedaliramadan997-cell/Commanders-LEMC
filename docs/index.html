@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — Commanders LEMC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">COMMANDERS<br/>LEMC</div>
+      <div class="brand-sub">UAE Chapter Platform</div>
+      <nav>
+        <a href="index.html" class="active">Dashboard</a>
+        <a href="members.html">Master Record</a>
+        <a href="attendance.html">Attendance Tracker</a>
+        <a href="admin.html" data-admin-only>Admin — Review &amp; Approve</a>
+        <a href="intake.html" target="_blank">Intake Form ↗</a>
+      </nav>
+      <div class="who" id="who-box"></div>
+    </aside>
+
+    <main class="content">
+      <h1>Chapter Dashboard</h1>
+      <p style="color:#5a5748; margin-top:-6px;">Live numbers — updates the moment attendance or membership changes.</p>
+
+      <div class="panel">
+        <div class="panel-title">MEMBERSHIP HEADCOUNT</div>
+        <div class="stat-grid" id="headcount-grid">Loading…</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">ATTENDANCE HEALTH</div>
+        <div class="stat-grid" id="health-grid">Loading…</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">NEEDS YOUR ATTENTION</div>
+        <div id="attention-list">Loading…</div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { supabase } from "./js/supabaseClient.js";
+    import { requireAuth, applyRoleVisibility, escapeHtml } from "./js/auth.js";
+    import { computeMemberStats, REQUIRED_STREAK } from "./js/streaks.js";
+
+    const session = await requireAuth();
+    if (session) {
+      applyRoleVisibility(session.profile.role);
+      await loadDashboard();
+    }
+
+    async function loadDashboard() {
+      const { data: members } = await supabase.from("members").select("*");
+      const { data: rides } = await supabase.from("rides").select("*").order("ride_date");
+      const { data: attendance } = await supabase.from("attendance").select("*");
+      const { data: submissions } = await supabase
+        .from("intake_submissions")
+        .select("id")
+        .eq("reviewed", false);
+
+      const levels = ["Full-Batch", "Prospect", "Hang-around", "Honor Member"];
+      const counts = Object.fromEntries(levels.map((l) => [l, 0]));
+      members.forEach((m) => { counts[m.membership_level] = (counts[m.membership_level] || 0) + 1; });
+
+      document.getElementById("headcount-grid").innerHTML =
+        levels.map((l) => statBox(counts[l] || 0, l + "s")).join("") +
+        statBox(members.length, "Total Roster");
+
+      const stats = members.map((m) => computeMemberStats(m, rides, attendance));
+      const pctValues = stats.filter((s) => s.attendancePct !== null).map((s) => s.attendancePct);
+      const avgPct = pctValues.length ? (pctValues.reduce((a, b) => a + b, 0) / pctValues.length) : 0;
+      const readyCount = stats.filter((s) => s.promotionStatus === "ready").length;
+      const soonCount = stats.filter((s) => s.promotionStatus === "soon").length;
+      const warnCount = stats.filter((s) => s.attendanceWarning).length;
+
+      document.getElementById("health-grid").innerHTML =
+        statBox((avgPct * 100).toFixed(1) + "%", "Chapter Attendance") +
+        statBox(readyCount, "Ready for Promotion") +
+        statBox(soonCount, "2 Rides Away") +
+        statBox(warnCount, "Poor-Attendance Warnings") +
+        statBox(submissions ? submissions.length : 0, "New Intake Submissions");
+
+      const attentionItems = [];
+      members.forEach((m, i) => {
+        const s = stats[i];
+        if (s.promotionStatus === "ready") {
+          attentionItems.push(pillRow(m.full_name, `Ready to promote (${s.currentStreak}/${REQUIRED_STREAK[m.membership_level]})`, "pill-ready"));
+        }
+      });
+      members.forEach((m, i) => {
+        const s = stats[i];
+        if (s.attendanceWarning) {
+          attentionItems.push(pillRow(m.full_name, `${s.currentMissStreak} consecutive misses`, "pill-warn"));
+        }
+      });
+
+      document.getElementById("attention-list").innerHTML = attentionItems.length
+        ? attentionItems.join("")
+        : `<p style="color:#5a5748;">Nothing needs review right now.</p>`;
+    }
+
+    function statBox(num, label) {
+      return `<div class="stat-box"><div class="num">${num}</div><div class="lbl">${label}</div></div>`;
+    }
+
+    function pillRow(name, detail, pillClass) {
+      return `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line);">
+        <span>${escapeHtml(name)}</span>
+        <span class="pill ${pillClass}">${escapeHtml(detail)}</span>
+      </div>`;
+    }
+  </script>
+</body>
+</html>

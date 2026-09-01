@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Attendance Tracker — Commanders LEMC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">COMMANDERS<br/>LEMC</div>
+      <div class="brand-sub">UAE Chapter Platform</div>
+      <nav>
+        <a href="index.html">Dashboard</a>
+        <a href="members.html">Master Record</a>
+        <a href="attendance.html" class="active">Attendance Tracker</a>
+        <a href="admin.html" data-admin-only>Admin — Review &amp; Approve</a>
+        <a href="intake.html" target="_blank">Intake Form ↗</a>
+      </nav>
+      <div class="who" id="who-box"></div>
+    </aside>
+
+    <main class="content">
+      <h1>Attendance Tracker</h1>
+      <p style="color:#5a5748; margin-top:-6px;">
+        Click a ride cell to cycle Attended → Missed → Excused → (blank).
+        Grouped Full-Batch → Prospect → Hang-around → Honor Members.
+      </p>
+
+      <div class="panel" style="display:flex; gap:10px; align-items:center;" data-admin-only>
+        <label style="margin:0;">Add ride date:</label>
+        <input id="new-ride-date" type="date" style="max-width:180px;" />
+        <input id="new-ride-label" type="text" placeholder="Optional label" style="max-width:200px;" />
+        <button class="gold" id="add-ride-btn">+ Add Ride</button>
+        <span id="ride-msg"></span>
+      </div>
+
+      <div class="panel">
+        <div class="table-scroll">
+          <table id="attendance-table">
+            <thead><tr id="table-head"></tr></thead>
+            <tbody id="table-body"><tr><td>Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">LEGEND</div>
+        <span class="pill pill-ok" style="margin-right:8px;">Green = Attended</span>
+        <span class="pill pill-warn" style="margin-right:8px;">Red = Missed</span>
+        <span class="pill pill-soon">Amber = Excused</span>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/attendance.js"></script>
+</body>
+</html>

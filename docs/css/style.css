@@ -1,0 +1,264 @@
+/* ============================================================
+   COMMANDERS LEMC — design tokens
+   Black: near-black warm charcoal, not pure #000 (leather/patch feel)
+   Gold: antique/brass gold, not neon (embroidered-patch feel)
+   ============================================================ */
+:root {
+  --black: #14120e;
+  --charcoal: #201e19;
+  --charcoal-2: #2a271f;
+  --gold: #c9a227;
+  --gold-bright: #e0bc4a;
+  --cream: #f3efe4;
+  --cream-dim: #cfc9b8;
+  --line: #3a362b;
+  --green: #4c7a4c;
+  --green-bg: #dcead9;
+  --amber: #c98a1f;
+  --amber-bg: #f5e3bf;
+  --red: #9c3b3b;
+  --red-bg: #f3d9d9;
+
+  --font-display: "Oswald", "Arial Narrow", sans-serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--cream);
+  color: var(--black);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.4em 0;
+  color: var(--black);
+}
+
+a { color: inherit; }
+
+/* ---------- App shell: dark sidebar + light content ---------- */
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--black);
+  color: var(--cream);
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar .brand {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--gold);
+  margin-bottom: 4px;
+  line-height: 1.15;
+}
+
+.sidebar .brand-sub {
+  font-size: 11px;
+  color: var(--cream-dim);
+  margin-bottom: 28px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar nav a {
+  text-decoration: none;
+  color: var(--cream-dim);
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  border-left: 3px solid transparent;
+}
+
+.sidebar nav a:hover { color: var(--cream); background: var(--charcoal); }
+
+.sidebar nav a.active {
+  color: var(--gold-bright);
+  border-left: 3px solid var(--gold);
+  background: var(--charcoal);
+}
+
+.sidebar .who {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--charcoal-2);
+  font-size: 12px;
+  color: var(--cream-dim);
+}
+
+.sidebar .who button {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.content {
+  padding: 32px 40px;
+  max-width: 1180px;
+}
+
+/* ---------- Cards / panels ---------- */
+.panel {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 20px 22px;
+  margin-bottom: 20px;
+}
+
+.panel-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--black);
+  background: var(--gold);
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 3px;
+  margin-bottom: 14px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.stat-box {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 14px 16px;
+  background: var(--cream);
+}
+
+.stat-box .num {
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: var(--black);
+}
+
+.stat-box .lbl {
+  font-size: 12px;
+  color: #5a5748;
+  margin-top: 2px;
+}
+
+/* ---------- Tables ---------- */
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+thead th {
+  text-align: left;
+  background: var(--charcoal);
+  color: var(--cream);
+  padding: 9px 10px;
+  font-weight: 500;
+  position: sticky;
+  top: 0;
+}
+tbody td { padding: 8px 10px; border-bottom: 1px solid var(--line); }
+tbody tr:hover { background: #faf8f2; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
+
+.section-row td {
+  background: var(--charcoal);
+  color: var(--gold-bright);
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+}
+
+/* status pills */
+.pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.pill-ready { background: var(--green-bg); color: var(--green); }
+.pill-soon { background: var(--amber-bg); color: var(--amber); }
+.pill-progress { background: #eee; color: #666; }
+.pill-warn { background: var(--red-bg); color: var(--red); }
+.pill-ok { background: var(--green-bg); color: var(--green); }
+
+.att-cell { text-align: center; cursor: pointer; user-select: none; border-radius: 3px; }
+.att-1 { background: var(--green-bg); }
+.att-0 { background: var(--red-bg); }
+.att-e { background: var(--amber-bg); }
+
+/* ---------- Buttons / inputs ---------- */
+button, .btn {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 5px;
+  border: 1px solid var(--black);
+  background: var(--black);
+  color: var(--cream);
+  cursor: pointer;
+}
+button:hover, .btn:hover { background: var(--charcoal-2); }
+button.gold { background: var(--gold); color: var(--black); border-color: var(--gold); }
+button.gold:hover { background: var(--gold-bright); }
+button.ghost { background: transparent; color: var(--black); border-color: var(--line); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+input, select, textarea {
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  width: 100%;
+}
+label { font-size: 12.5px; color: #5a5748; display: block; margin: 10px 0 4px; }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+.form-grid .full { grid-column: 1 / -1; }
+
+.msg { padding: 10px 14px; border-radius: 5px; font-size: 13.5px; margin-top: 12px; }
+.msg-error { background: var(--red-bg); color: var(--red); }
+.msg-ok { background: var(--green-bg); color: var(--green); }
+
+/* ---------- Public intake page (no sidebar) ---------- */
+.public-wrap {
+  min-height: 100vh;
+  background: var(--black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+}
+.public-card {
+  background: var(--cream);
+  border-radius: 8px;
+  padding: 34px 36px;
+  max-width: 640px;
+  width: 100%;
+}
+.public-card h1 { color: var(--black); }
+.public-header { text-align: center; margin-bottom: 26px; }
+.public-header .eyebrow { color: var(--gold); font-family: var(--font-display); letter-spacing: 0.08em; font-size: 13px; }
+
+@media (max-width: 820px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar { flex-direction: row; overflow-x: auto; align-items: center; }
+  .sidebar nav { flex-direction: row; }
+  .sidebar .who { display: none; }
+  .content { padding: 20px; }
+  .form-grid { grid-template-columns: 1fr; }
+}

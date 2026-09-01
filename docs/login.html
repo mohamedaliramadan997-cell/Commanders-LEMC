@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in — Commanders LEMC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="public-wrap">
+    <div class="public-card" style="max-width: 400px;">
+      <div class="public-header">
+        <div class="eyebrow">GOLD_BLACK_NATION</div>
+        <h1>Commanders LEMC</h1>
+        <div style="color:#5a5748; font-size: 13px;">UAE Chapter — Officer Sign In</div>
+      </div>
+
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" />
+
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" />
+
+      <button id="signin-btn" class="gold" style="width:100%; margin-top:18px;">Sign In</button>
+      <div id="msg"></div>
+
+      <p style="font-size:12px; color:#5a5748; margin-top:20px; text-align:center;">
+        Not an officer? <a href="intake.html">Join as a new member instead →</a>
+      </p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from "./js/supabaseClient.js";
+
+    const msg = document.getElementById("msg");
+
+    // If already logged in, skip straight to the dashboard.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = "index.html";
+    });
+
+    document.getElementById("signin-btn").addEventListener("click", async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      msg.innerHTML = "";
+
+      if (!email || !password) {
+        msg.innerHTML = `<div class="msg msg-error">Enter both email and password.</div>`;
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        msg.innerHTML = `<div class="msg msg-error">${error.message}</div>`;
+        return;
+      }
+      window.location.href = "index.html";
+    });
+  </script>
+</body>
+</html>
