@@ -26,7 +26,7 @@
     <main class="content">
       <h1>Master Record</h1>
       <p style="color:#5a5748; margin-top:-6px;">
-        Every member, one row each. <span data-admin-only>Click a row to edit.</span>
+        Every member, one row each. Click a row to view their full profile.
         <span id="readonly-note" style="display:none;">You have read-only access.</span>
       </p>
 
@@ -54,17 +54,6 @@
             <tbody id="members-body"><tr><td colspan="8">Loading…</td></tr></tbody>
           </table>
         </div>
-      </div>
-
-      <!-- Edit / Add drawer -->
-      <div class="panel" id="edit-panel" style="display:none;">
-        <div class="panel-title">MEMBER DETAILS</div>
-        <div class="form-grid" id="edit-form"></div>
-        <div style="margin-top:16px; display:flex; gap:10px;">
-          <button class="gold" id="save-btn">Save</button>
-          <button class="ghost" id="cancel-btn">Cancel</button>
-        </div>
-        <div id="edit-msg"></div>
       </div>
     </main>
   </div>
