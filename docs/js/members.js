@@ -2,6 +2,7 @@ import { supabase } from "./supabaseClient.js";
 import { requireAuth, applyRoleVisibility, escapeHtml } from "./auth.js";
 import { ridingExperienceOptionsHtml, yearsToSinceYear, sinceYearToYears } from "./utils.js";
 import { openModal, setModalContent, closeModal } from "./modal.js";
+import { photoStyle, adjustWidgetHtml, wireAdjustWidget } from "./photoAdjust.js";
 
 const LEVELS = ["Hang-around", "Prospect", "Full-Batch", "Honor Member"];
 
@@ -118,7 +119,7 @@ function viewHtml(m) {
   return `
     <div class="profile-header">
       ${m.photo_url
-        ? `<img class="profile-photo" src="${m.photo_url}" alt="${escapeHtml(m.full_name)}" />`
+        ? `<img class="profile-photo" src="${m.photo_url}" alt="${escapeHtml(m.full_name)}" style="${photoStyle({ zoom: m.photo_zoom, x: m.photo_pos_x, y: m.photo_pos_y })}" />`
         : `<div class="profile-photo-placeholder">${escapeHtml(initials)}</div>`}
       <div>
         <h2>${escapeHtml(m.full_name)}</h2>
@@ -129,18 +130,19 @@ function viewHtml(m) {
       </div>
     </div>
 
-    <div class="bike-photo-strip">
-      ${m.bike_photo_url
-        ? `<img src="${m.bike_photo_url}" alt="Bike" />`
-        : `<div class="no-photo">No bike photo uploaded</div>`}
-    </div>
-
     <div class="profile-grid">
       ${fields.filter(([, v]) => v !== undefined).map(([k, v, span]) => `
         <div class="field ${span === "full" ? "full" : ""}">
           <div class="k">${k}</div>
           <div class="v">${v ? escapeHtml(String(v)) : "—"}</div>
         </div>`).join("")}
+    </div>
+
+    <div class="bike-photo-strip" style="margin-top:16px;">
+      <div class="k" style="margin-bottom:6px;">BIKE</div>
+      ${m.bike_photo_url
+        ? `<img src="${m.bike_photo_url}" alt="Bike" style="${photoStyle({ zoom: m.bike_photo_zoom, x: m.bike_photo_pos_x, y: m.bike_photo_pos_y })}" />`
+        : `<div class="no-photo">No bike photo uploaded</div>`}
     </div>
 
     <div class="modal-actions" data-admin-only>
@@ -204,6 +206,13 @@ function editHtml(m, isExisting) {
 
   return `
     <h2>${isExisting ? "Edit Member" : "Add New Member"}</h2>
+
+    ${(m.photo_url || m.bike_photo_url) ? `
+    <div class="form-grid" style="margin-bottom:6px;">
+      <div>${adjustWidgetHtml({ idPrefix: "edit-photo", label: "Personal Photo", imgUrl: m.photo_url, shape: "circle", values: { zoom: m.photo_zoom, x: m.photo_pos_x, y: m.photo_pos_y } })}</div>
+      <div>${adjustWidgetHtml({ idPrefix: "edit-bike-photo", label: "Bike Photo", imgUrl: m.bike_photo_url, shape: "rect", values: { zoom: m.bike_photo_zoom, x: m.bike_photo_pos_x, y: m.bike_photo_pos_y } })}</div>
+    </div>` : ""}
+
     <div class="form-grid">
       <div class="full">
         <label>Membership Level</label>
@@ -226,14 +235,16 @@ function editHtml(m, isExisting) {
 }
 
 function wireEditActions(id) {
-  document.getElementById("save-btn").addEventListener("click", () => saveMember(id));
+  const getPhotoValues = wireAdjustWidget("edit-photo");
+  const getBikePhotoValues = wireAdjustWidget("edit-bike-photo");
+  document.getElementById("save-btn").addEventListener("click", () => saveMember(id, getPhotoValues, getBikePhotoValues));
   document.getElementById("cancel-edit-btn").addEventListener("click", () => {
     if (id) openViewModal(id);
     else closeModal();
   });
 }
 
-async function saveMember(id) {
+async function saveMember(id, getPhotoValues, getBikePhotoValues) {
   const overlay = document.getElementById("shared-modal-overlay");
   const inputs = overlay.querySelectorAll("[data-key]");
   const payload = {};
@@ -245,6 +256,15 @@ async function saveMember(id) {
     const v = el.value.trim();
     payload[el.dataset.key] = v === "" ? null : v;
   });
+
+  const photoVals = getPhotoValues();
+  payload.photo_zoom = photoVals.zoom;
+  payload.photo_pos_x = photoVals.x;
+  payload.photo_pos_y = photoVals.y;
+  const bikeVals = getBikePhotoValues();
+  payload.bike_photo_zoom = bikeVals.zoom;
+  payload.bike_photo_pos_x = bikeVals.x;
+  payload.bike_photo_pos_y = bikeVals.y;
 
   if (!payload.full_name) {
     document.getElementById("edit-msg").innerHTML = `<div class="msg msg-error">Full name is required.</div>`;
