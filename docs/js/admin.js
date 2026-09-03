@@ -3,6 +3,7 @@ import { requireAuth, applyRoleVisibility, escapeHtml } from "./auth.js";
 import { computeMemberStats, REQUIRED_STREAK } from "./streaks.js";
 import { titleCase, normalizeEmail, normalizePhone, sinceYearToYears, ridingExperienceOptionsHtml, yearsToSinceYear } from "./utils.js";
 import { openModal, closeModal } from "./modal.js";
+import { adjustWidgetHtml, wireAdjustWidget } from "./photoAdjust.js";
 
 let session, allSubmissions = [];
 
@@ -77,11 +78,12 @@ function openSubmissionModal(id) {
 
   openModal(`
     <h2>Review Application</h2>
-    <div class="profile-header" style="border-bottom:none; padding-bottom:0;">
-      ${s.photo_url ? `<img class="profile-photo" src="${s.photo_url}" alt="" />` : ""}
-      <div style="font-size:13px; color:#5a5748;">Submitted ${new Date(s.submitted_at).toLocaleDateString()}</div>
+    <div style="font-size:13px; color:#5a5748; margin-bottom:10px;">Submitted ${new Date(s.submitted_at).toLocaleDateString()}</div>
+
+    <div class="form-grid" style="margin-bottom:6px;">
+      <div>${adjustWidgetHtml({ idPrefix: "sub-photo", label: "Personal Photo", imgUrl: s.photo_url, shape: "circle", values: { zoom: s.photo_zoom, x: s.photo_pos_x, y: s.photo_pos_y } })}</div>
+      <div>${adjustWidgetHtml({ idPrefix: "sub-bike-photo", label: "Bike Photo", imgUrl: s.bike_photo_url, shape: "rect", values: { zoom: s.bike_photo_zoom, x: s.bike_photo_pos_x, y: s.bike_photo_pos_y } })}</div>
     </div>
-    ${s.bike_photo_url ? `<div class="bike-photo-strip"><img src="${s.bike_photo_url}" alt="Bike" /></div>` : ""}
 
     <div class="form-grid">
       ${fieldsHtml}
@@ -100,7 +102,10 @@ function openSubmissionModal(id) {
     </div>
   `);
 
-  document.getElementById("approve-btn").addEventListener("click", () => approveSubmission(id));
+  const getPhotoValues = wireAdjustWidget("sub-photo");
+  const getBikePhotoValues = wireAdjustWidget("sub-bike-photo");
+
+  document.getElementById("approve-btn").addEventListener("click", () => approveSubmission(id, getPhotoValues, getBikePhotoValues));
   document.getElementById("dismiss-btn").addEventListener("click", () => confirmDismiss(id, s.full_name));
   document.getElementById("close-btn").addEventListener("click", () => closeModal());
 }
@@ -136,10 +141,12 @@ function collectSubmissionEdits() {
   return edits;
 }
 
-async function approveSubmission(id) {
+async function approveSubmission(id, getPhotoValues, getBikePhotoValues) {
   const s = allSubmissions.find((x) => x.id === id);
   const edits = collectSubmissionEdits();
   const merged = { ...s, ...edits };
+  const photoVals = getPhotoValues();
+  const bikeVals = getBikePhotoValues();
 
   const { error: insertErr } = await supabase.from("members").insert({
     full_name: merged.full_name,
@@ -159,6 +166,8 @@ async function approveSubmission(id) {
     emergency_contact_mobile: merged.emergency_contact_mobile,
     photo_url: s.photo_url,
     bike_photo_url: s.bike_photo_url,
+    photo_zoom: photoVals.zoom, photo_pos_x: photoVals.x, photo_pos_y: photoVals.y,
+    bike_photo_zoom: bikeVals.zoom, bike_photo_pos_x: bikeVals.x, bike_photo_pos_y: bikeVals.y,
     date_joined: new Date().toISOString().slice(0, 10),
   });
   if (insertErr) {
