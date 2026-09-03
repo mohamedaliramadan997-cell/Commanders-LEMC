@@ -1,8 +1,25 @@
 import { supabase } from "./supabaseClient.js";
 import { requireAuth, applyRoleVisibility, escapeHtml } from "./auth.js";
 import { computeMemberStats, REQUIRED_STREAK } from "./streaks.js";
+import { titleCase, normalizeEmail, normalizePhone, sinceYearToYears, ridingExperienceOptionsHtml, yearsToSinceYear } from "./utils.js";
+import { openModal, closeModal } from "./modal.js";
 
-let session;
+let session, allSubmissions = [];
+
+const SUBMISSION_FIELDS = [
+  ["full_name", "Full Name", "name"],
+  ["city", "City", "name"],
+  ["neighborhood", "Neighborhood", "name"],
+  ["mobile", "Mobile Number", "phone"],
+  ["whatsapp", "WhatsApp Number", "phone"],
+  ["email", "Email", "email"],
+  ["date_of_birth", "Date of Birth", "date"],
+  ["bike_model", "Bike Model", "name"],
+  ["profession", "Profession / Occupation", "name"],
+  ["emergency_contact_name", "Emergency Contact — Name", "name"],
+  ["emergency_contact_relation", "Emergency Contact — Relation", "name"],
+  ["emergency_contact_mobile", "Emergency Contact — Mobile", "phone"],
+];
 
 init();
 
@@ -19,6 +36,9 @@ async function init() {
   await Promise.all([loadSubmissions(), loadPromotions(), loadProfiles()]);
 }
 
+// ============================================================
+// INTAKE SUBMISSIONS — click a card to review, edit, approve/dismiss
+// ============================================================
 async function loadSubmissions() {
   const { data, error } = await supabase
     .from("intake_submissions")
@@ -28,62 +48,138 @@ async function loadSubmissions() {
 
   const el = document.getElementById("submissions-list");
   if (error) { el.innerHTML = `<div class="msg msg-error">${error.message}</div>`; return; }
+  allSubmissions = data;
   if (!data.length) { el.innerHTML = `<p style="color:#5a5748;">No new submissions.</p>`; return; }
 
   el.innerHTML = data.map((s) => `
-    <div style="display:flex; gap:14px; border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:10px;">
-      ${s.photo_url ? `<img src="${s.photo_url}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0;" />` : ""}
+    <div class="submission-row" data-id="${s.id}" style="display:flex; gap:14px; align-items:center; border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:10px; cursor:pointer;">
+      ${s.photo_url ? `<img src="${s.photo_url}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;" />` : `<div style="width:48px;height:48px;border-radius:50%;background:var(--charcoal);flex-shrink:0;"></div>`}
       <div style="flex:1;">
         <strong>${escapeHtml(s.full_name)}</strong> — ${escapeHtml(s.mobile || "")} · ${escapeHtml(s.city || "")}
-        <div style="font-size:12.5px; color:#5a5748; margin:4px 0 10px;">
-          ${escapeHtml(s.email || "")} ${s.bike_model ? " · " + escapeHtml(s.bike_model) : ""}
-          ${s.riding_since_year ? " · riding since " + s.riding_since_year : ""}
-          ${s.bike_photo_url ? ` · <a href="${s.bike_photo_url}" target="_blank">bike photo ↗</a>` : ""}
-        </div>
-        <button class="gold" data-approve="${s.id}">Add to Master Record as Hang-around</button>
-        <button class="ghost" data-dismiss="${s.id}">Dismiss</button>
+        <div style="font-size:12px; color:#5a5748;">Tap to review full application →</div>
       </div>
     </div>
   `).join("");
 
-  el.querySelectorAll("[data-approve]").forEach((btn) =>
-    btn.addEventListener("click", () => approveSubmission(btn.dataset.approve, data)));
-  el.querySelectorAll("[data-dismiss]").forEach((btn) =>
-    btn.addEventListener("click", () => dismissSubmission(btn.dataset.dismiss)));
+  el.querySelectorAll(".submission-row").forEach((row) =>
+    row.addEventListener("click", () => openSubmissionModal(row.dataset.id)));
 }
 
-async function approveSubmission(id, submissions) {
-  const s = submissions.find((x) => x.id === id);
+function openSubmissionModal(id) {
+  const s = allSubmissions.find((x) => x.id === id);
+  if (!s) return;
+
+  const fieldsHtml = SUBMISSION_FIELDS.map(([key, label, type]) => `
+    <div class="${key === "email" || key === "bike_model" || key === "profession" || key === "emergency_contact_mobile" ? "full" : ""}">
+      <label>${label}</label>
+      <input data-key="${key}" data-type="${type}" type="${type === "date" ? "date" : "text"}" value="${escapeHtml(s[key] || "")}" />
+    </div>`).join("");
+
+  openModal(`
+    <h2>Review Application</h2>
+    <div class="profile-header" style="border-bottom:none; padding-bottom:0;">
+      ${s.photo_url ? `<img class="profile-photo" src="${s.photo_url}" alt="" />` : ""}
+      <div style="font-size:13px; color:#5a5748;">Submitted ${new Date(s.submitted_at).toLocaleDateString()}</div>
+    </div>
+    ${s.bike_photo_url ? `<div class="bike-photo-strip"><img src="${s.bike_photo_url}" alt="Bike" /></div>` : ""}
+
+    <div class="form-grid">
+      ${fieldsHtml}
+      <div>
+        <label>Riding Experience</label>
+        <select data-key="riding_since_year" id="submission-riding-years">
+          ${ridingExperienceOptionsHtml(sinceYearToYears(s.riding_since_year))}
+        </select>
+      </div>
+    </div>
+    <div id="submission-msg"></div>
+    <div class="modal-actions">
+      <button class="gold" id="approve-btn">Approve &amp; Add to Master Record</button>
+      <button class="ghost" id="dismiss-btn" style="color:var(--red); border-color:var(--red);">Dismiss</button>
+      <button class="ghost" id="close-btn">Close</button>
+    </div>
+  `);
+
+  document.getElementById("approve-btn").addEventListener("click", () => approveSubmission(id));
+  document.getElementById("dismiss-btn").addEventListener("click", () => confirmDismiss(id, s.full_name));
+  document.getElementById("close-btn").addEventListener("click", () => closeModal());
+}
+
+function confirmDismiss(id, name) {
+  const overlay = document.getElementById("shared-modal-overlay");
+  const msg = document.getElementById("submission-msg");
+  msg.innerHTML = `
+    <div class="delete-confirm-box">
+      <p>Dismiss ${escapeHtml(name)}'s application? This removes it from your review queue.</p>
+      <button class="danger" id="confirm-dismiss-btn">Yes, dismiss</button>
+      <button class="ghost" id="cancel-dismiss-btn">Cancel</button>
+    </div>`;
+  document.getElementById("confirm-dismiss-btn").addEventListener("click", () => dismissSubmission(id));
+  document.getElementById("cancel-dismiss-btn").addEventListener("click", () => { msg.innerHTML = ""; });
+}
+
+function collectSubmissionEdits() {
+  const overlay = document.getElementById("shared-modal-overlay");
+  const edits = {};
+  overlay.querySelectorAll("[data-key]").forEach((el) => {
+    if (el.dataset.key === "riding_since_year") {
+      edits.riding_since_year = el.value === "" ? null : yearsToSinceYear(el.value);
+      return;
+    }
+    let v = el.value.trim();
+    const type = el.dataset.type;
+    if (type === "name") v = titleCase(v);
+    else if (type === "email") v = normalizeEmail(v);
+    else if (type === "phone") v = normalizePhone(v);
+    edits[el.dataset.key] = v === "" ? null : v;
+  });
+  return edits;
+}
+
+async function approveSubmission(id) {
+  const s = allSubmissions.find((x) => x.id === id);
+  const edits = collectSubmissionEdits();
+  const merged = { ...s, ...edits };
+
   const { error: insertErr } = await supabase.from("members").insert({
-    full_name: s.full_name,
+    full_name: merged.full_name,
     membership_level: "Hang-around",
-    chapter_id: s.chapter_id,
-    city: s.city,
-    neighborhood: s.neighborhood,
-    mobile: s.mobile,
-    whatsapp: s.whatsapp,
-    email: s.email,
-    date_of_birth: s.date_of_birth,
-    bike_model: s.bike_model,
-    profession: s.profession,
-    riding_since_year: s.riding_since_year,
-    emergency_contact_name: s.emergency_contact_name,
-    emergency_contact_relation: s.emergency_contact_relation,
-    emergency_contact_mobile: s.emergency_contact_mobile,
+    chapter_id: merged.chapter_id,
+    city: merged.city,
+    neighborhood: merged.neighborhood,
+    mobile: merged.mobile,
+    whatsapp: merged.whatsapp,
+    email: merged.email,
+    date_of_birth: merged.date_of_birth,
+    bike_model: merged.bike_model,
+    profession: merged.profession,
+    riding_since_year: merged.riding_since_year,
+    emergency_contact_name: merged.emergency_contact_name,
+    emergency_contact_relation: merged.emergency_contact_relation,
+    emergency_contact_mobile: merged.emergency_contact_mobile,
     photo_url: s.photo_url,
     bike_photo_url: s.bike_photo_url,
     date_joined: new Date().toISOString().slice(0, 10),
   });
-  if (insertErr) { alert(insertErr.message); return; }
+  if (insertErr) {
+    document.getElementById("submission-msg").innerHTML = `<div class="msg msg-error">${insertErr.message}</div>`;
+    return;
+  }
   await supabase.from("intake_submissions").update({ reviewed: true }).eq("id", id);
+  closeModal();
   await loadSubmissions();
 }
 
 async function dismissSubmission(id) {
   await supabase.from("intake_submissions").update({ reviewed: true }).eq("id", id);
+  closeModal();
   await loadSubmissions();
 }
 
+// ============================================================
+// PROMOTION APPROVAL — feeds the same membership_level field that
+// Master Record's rank dropdown edits, so both stay in sync automatically.
+// ============================================================
 async function loadPromotions() {
   const [{ data: members }, { data: rides }, { data: attendance }] = await Promise.all([
     supabase.from("members").select("*"),
@@ -101,7 +197,7 @@ async function loadPromotions() {
   el.innerHTML = ready.map(({ m, stats }) => {
     const nextLevel = m.membership_level === "Hang-around" ? "Prospect" : "Full-Batch";
     return `
-    <div style="display:flex; justify-content:space-between; align-items:center; border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:10px;">
       <div>
         <strong>${escapeHtml(m.full_name)}</strong>
         <div style="font-size:12.5px; color:#5a5748;">${m.membership_level} → ${nextLevel} · streak ${stats.currentStreak}/${REQUIRED_STREAK[m.membership_level]}</div>
@@ -125,12 +221,15 @@ async function approvePromotion(memberId, nextLevel) {
   await loadPromotions();
 }
 
+// ============================================================
+// OFFICERS & ROLES
+// ============================================================
 async function loadProfiles() {
   const { data, error } = await supabase.from("profiles").select("*").order("full_name");
   const el = document.getElementById("profiles-list");
   if (error) { el.innerHTML = `<div class="msg msg-error">${error.message}</div>`; return; }
 
-  el.innerHTML = `<table><thead><tr><th>Name</th><th>Role</th><th></th></tr></thead><tbody>` +
+  el.innerHTML = `<div class="table-scroll"><table><thead><tr><th>Name</th><th>Role</th><th></th></tr></thead><tbody>` +
     data.map((p) => `
       <tr>
         <td>${escapeHtml(p.full_name)}</td>
@@ -142,7 +241,7 @@ async function loadProfiles() {
              </button>`}
         </td>
       </tr>`).join("") +
-    `</tbody></table>`;
+    `</tbody></table></div>`;
 
   el.querySelectorAll("[data-toggle-role]").forEach((btn) =>
     btn.addEventListener("click", async () => {
