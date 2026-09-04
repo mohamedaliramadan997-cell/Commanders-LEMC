@@ -119,7 +119,7 @@ function viewHtml(m) {
   return `
     <div class="profile-header">
       ${m.photo_url
-        ? `<img class="profile-photo" src="${m.photo_url}" alt="${escapeHtml(m.full_name)}" style="${photoStyle({ zoom: m.photo_zoom, x: m.photo_pos_x, y: m.photo_pos_y })}" />`
+        ? `<img class="profile-photo" src="${m.photo_url}" alt="${escapeHtml(m.full_name)}" style="${photoStyle({ zoom: m.photo_zoom, x: m.photo_pos_x, y: m.photo_pos_y, isAvatar: true })}" />`
         : `<div class="profile-photo-placeholder">${escapeHtml(initials)}</div>`}
       <div>
         <h2>${escapeHtml(m.full_name)}</h2>
@@ -235,7 +235,7 @@ function editHtml(m, isExisting) {
 }
 
 function wireEditActions(id) {
-  const getPhotoValues = wireAdjustWidget("edit-photo");
+  const getPhotoValues = wireAdjustWidget("edit-photo", { isAvatar: true });
   const getBikePhotoValues = wireAdjustWidget("edit-bike-photo");
   document.getElementById("save-btn").addEventListener("click", () => saveMember(id, getPhotoValues, getBikePhotoValues));
   document.getElementById("cancel-edit-btn").addEventListener("click", () => {
