@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient.js";
+import { refreshNavBadge } from "./notifications.js";
 
 /**
  * Call this at the top of every protected page. Redirects to login.html
@@ -25,6 +26,7 @@ export async function requireAuth() {
 
   renderWho(profile);
   wireLogout();
+  if (profile.role === "admin") refreshNavBadge();
   return { user: session.user, profile };
 }
 
