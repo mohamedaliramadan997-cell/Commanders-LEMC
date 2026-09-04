@@ -156,5 +156,5 @@ export function wireAdjustWidget(idPrefix, { isAvatar = false } = {}) {
   }, { passive: false });
 
   render();
-  return () => ({ zoom: state.zoom, x: state.x, y: state.y });
+  return () => ({ zoom: Math.round(state.zoom * 100) / 100, x: Math.round(state.x), y: Math.round(state.y) });
 }
