@@ -328,10 +328,10 @@ label { font-size: 12.5px; color: #5a5748; display: block; margin: 10px 0 4px; }
 }
 .bike-photo-strip img {
   width: 100%;
-  max-height: 220px;
-  object-fit: cover;
+  height: min(65vh, 480px);
   border-radius: 6px;
   border: 1px solid var(--line);
+  background: #e9e6da;
 }
 .bike-photo-strip .no-photo {
   padding: 24px; text-align: center; color: #999;
@@ -386,3 +386,20 @@ button.danger:hover { background: #7a2e2e; }
 }
 .photo-adjust label { margin: 2px 0 2px; }
 .photo-adjust-frame { background: #eee; }
+
+/* ---------- Sidebar notification badge ---------- */
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
