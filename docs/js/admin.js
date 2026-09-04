@@ -4,6 +4,7 @@ import { computeMemberStats, REQUIRED_STREAK } from "./streaks.js";
 import { titleCase, normalizeEmail, normalizePhone, sinceYearToYears, ridingExperienceOptionsHtml, yearsToSinceYear } from "./utils.js";
 import { openModal, closeModal } from "./modal.js";
 import { adjustWidgetHtml, wireAdjustWidget } from "./photoAdjust.js";
+import { getBirthdayNotifications, acknowledgeBirthday, refreshNavBadge } from "./notifications.js";
 
 let session, allSubmissions = [];
 
@@ -34,7 +35,67 @@ async function init() {
     return;
   }
   document.getElementById("admin-body").style.display = "block";
-  await Promise.all([loadSubmissions(), loadPromotions(), loadProfiles()]);
+  document.getElementById("whatsapp-summary-btn").addEventListener("click", sendWhatsAppSummary);
+  await Promise.all([loadNotifications(), loadSubmissions(), loadPromotions(), loadProfiles()]);
+}
+
+// ============================================================
+// NOTIFICATIONS — birthday reminders (1 day before), acknowledgeable
+// ============================================================
+let currentBirthdayNotifs = [];
+
+async function loadNotifications() {
+  const el = document.getElementById("notifications-list");
+  currentBirthdayNotifs = await getBirthdayNotifications();
+
+  if (!currentBirthdayNotifs.length) {
+    el.innerHTML = `<p style="color:#5a5748;">Nothing to flag right now.</p>`;
+    return;
+  }
+
+  el.innerHTML = currentBirthdayNotifs.map(({ member, notifDate }) => `
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:10px;">
+      <div>
+        <span class="pill pill-soon">Birthday tomorrow</span>
+        <strong style="margin-left:8px;">${escapeHtml(member.full_name)}</strong>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="ghost" data-wa-birthday="${member.id}">Send via WhatsApp</button>
+        <button class="gold" data-ack="${member.id}" data-date="${notifDate}">Acknowledge</button>
+      </div>
+    </div>
+  `).join("");
+
+  el.querySelectorAll("[data-ack]").forEach((btn) =>
+    btn.addEventListener("click", () => acknowledge(btn.dataset.ack, btn.dataset.date)));
+  el.querySelectorAll("[data-wa-birthday]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const notif = currentBirthdayNotifs.find((n) => n.member.id === btn.dataset.waBirthday);
+      if (notif) sendWhatsApp(`Reminder: it's ${notif.member.full_name}'s birthday tomorrow — Commanders LEMC UAE.`);
+    }));
+}
+
+async function acknowledge(memberId, notifDate) {
+  await acknowledgeBirthday(memberId, notifDate, session.user.id);
+  await loadNotifications();
+  await refreshNavBadge();
+}
+
+function sendWhatsApp(text) {
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
+}
+
+async function sendWhatsAppSummary() {
+  const lines = ["Commanders LEMC — UAE Chapter — Admin summary:"];
+  const subCountEl = document.querySelectorAll("#submissions-list > div").length;
+  lines.push(`• ${subCountEl} new intake submission(s) awaiting review`);
+  const promoCountEl = document.querySelectorAll("#promotions-list > div").length;
+  lines.push(`• ${promoCountEl} member(s) ready for promotion approval`);
+  lines.push(`• ${currentBirthdayNotifs.length} birthday reminder(s) for tomorrow`);
+  if (currentBirthdayNotifs.length) {
+    lines.push(...currentBirthdayNotifs.map((n) => `   – ${n.member.full_name}`));
+  }
+  sendWhatsApp(lines.join("\n"));
 }
 
 // ============================================================
@@ -102,7 +163,7 @@ function openSubmissionModal(id) {
     </div>
   `);
 
-  const getPhotoValues = wireAdjustWidget("sub-photo");
+  const getPhotoValues = wireAdjustWidget("sub-photo", { isAvatar: true });
   const getBikePhotoValues = wireAdjustWidget("sub-bike-photo");
 
   document.getElementById("approve-btn").addEventListener("click", () => approveSubmission(id, getPhotoValues, getBikePhotoValues));
@@ -177,12 +238,14 @@ async function approveSubmission(id, getPhotoValues, getBikePhotoValues) {
   await supabase.from("intake_submissions").update({ reviewed: true }).eq("id", id);
   closeModal();
   await loadSubmissions();
+  await refreshNavBadge();
 }
 
 async function dismissSubmission(id) {
   await supabase.from("intake_submissions").update({ reviewed: true }).eq("id", id);
   closeModal();
   await loadSubmissions();
+  await refreshNavBadge();
 }
 
 // ============================================================
@@ -228,6 +291,7 @@ async function approvePromotion(memberId, nextLevel) {
   const { error } = await supabase.from("members").update(payload).eq("id", memberId);
   if (error) { alert(error.message); return; }
   await loadPromotions();
+  await refreshNavBadge();
 }
 
 // ============================================================
