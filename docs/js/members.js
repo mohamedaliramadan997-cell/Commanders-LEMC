@@ -1,6 +1,6 @@
 import { supabase } from "./supabaseClient.js";
 import { requireAuth, applyRoleVisibility, escapeHtml } from "./auth.js";
-import { ridingExperienceOptionsHtml, yearsToSinceYear, sinceYearToYears } from "./utils.js";
+import { ridingExperienceOptionsHtml, yearsToSinceYear, sinceYearToYears, uploadPhotoToStorage } from "./utils.js";
 import { openModal, setModalContent, closeModal } from "./modal.js";
 import { photoStyle, adjustWidgetHtml, wireAdjustWidget } from "./photoAdjust.js";
 
@@ -119,7 +119,7 @@ function viewHtml(m) {
   return `
     <div class="profile-header">
       ${m.photo_url
-        ? `<img class="profile-photo" src="${m.photo_url}" alt="${escapeHtml(m.full_name)}" style="${photoStyle({ zoom: m.photo_zoom, x: m.photo_pos_x, y: m.photo_pos_y, isAvatar: true })}" />`
+        ? `<div class="profile-photo-frame"><img src="${m.photo_url}" alt="${escapeHtml(m.full_name)}" style="${photoStyle({ zoom: m.photo_zoom, x: m.photo_pos_x, y: m.photo_pos_y, isAvatar: true })}" /></div>`
         : `<div class="profile-photo-placeholder">${escapeHtml(initials)}</div>`}
       <div>
         <h2>${escapeHtml(m.full_name)}</h2>
@@ -141,7 +141,7 @@ function viewHtml(m) {
     <div class="bike-photo-strip" style="margin-top:16px;">
       <div class="k" style="margin-bottom:6px;">BIKE</div>
       ${m.bike_photo_url
-        ? `<img src="${m.bike_photo_url}" alt="Bike" style="${photoStyle({ zoom: m.bike_photo_zoom, x: m.bike_photo_pos_x, y: m.bike_photo_pos_y })}" />`
+        ? `<div class="bike-photo-frame"><img src="${m.bike_photo_url}" alt="Bike" style="${photoStyle({ zoom: m.bike_photo_zoom, x: m.bike_photo_pos_x, y: m.bike_photo_pos_y })}" /></div>`
         : `<div class="no-photo">No bike photo uploaded</div>`}
     </div>
 
@@ -207,11 +207,20 @@ function editHtml(m, isExisting) {
   return `
     <h2>${isExisting ? "Edit Member" : "Add New Member"}</h2>
 
-    ${(m.photo_url || m.bike_photo_url) ? `
     <div class="form-grid" style="margin-bottom:6px;">
-      <div>${adjustWidgetHtml({ idPrefix: "edit-photo", label: "Personal Photo", imgUrl: m.photo_url, shape: "circle", values: { zoom: m.photo_zoom, x: m.photo_pos_x, y: m.photo_pos_y } })}</div>
-      <div>${adjustWidgetHtml({ idPrefix: "edit-bike-photo", label: "Bike Photo", imgUrl: m.bike_photo_url, shape: "rect", values: { zoom: m.bike_photo_zoom, x: m.bike_photo_pos_x, y: m.bike_photo_pos_y } })}</div>
-    </div>` : ""}
+      <div>
+        <div id="edit-photo-widget-container">${adjustWidgetHtml({ idPrefix: "edit-photo", label: "Personal Photo", imgUrl: m.photo_url, shape: "circle", values: { zoom: m.photo_zoom, x: m.photo_pos_x, y: m.photo_pos_y } })}</div>
+        <label style="margin-top:8px;">${m.photo_url ? "Replace" : "Upload"} personal photo</label>
+        <input type="file" accept="image/*" id="edit-photo-upload" />
+        <div id="edit-photo-upload-msg" style="font-size:12px; margin-top:4px;"></div>
+      </div>
+      <div>
+        <div id="edit-bike-photo-widget-container">${adjustWidgetHtml({ idPrefix: "edit-bike-photo", label: "Bike Photo", imgUrl: m.bike_photo_url, shape: "rect", values: { zoom: m.bike_photo_zoom, x: m.bike_photo_pos_x, y: m.bike_photo_pos_y } })}</div>
+        <label style="margin-top:8px;">${m.bike_photo_url ? "Replace" : "Upload"} bike photo</label>
+        <input type="file" accept="image/*" id="edit-bike-photo-upload" />
+        <div id="edit-bike-photo-upload-msg" style="font-size:12px; margin-top:4px;"></div>
+      </div>
+    </div>
 
     <div class="form-grid">
       <div class="full">
@@ -235,12 +244,52 @@ function editHtml(m, isExisting) {
 }
 
 function wireEditActions(id) {
-  const getPhotoValues = wireAdjustWidget("edit-photo", { isAvatar: true });
-  const getBikePhotoValues = wireAdjustWidget("edit-bike-photo");
-  document.getElementById("save-btn").addEventListener("click", () => saveMember(id, getPhotoValues, getBikePhotoValues));
+  let getPhotoValues = wireAdjustWidget("edit-photo", { isAvatar: true });
+  let getBikePhotoValues = wireAdjustWidget("edit-bike-photo");
+
+  wirePhotoUpload({
+    fileInputId: "edit-photo-upload", msgId: "edit-photo-upload-msg",
+    containerId: "edit-photo-widget-container", idPrefix: "edit-photo",
+    label: "Personal Photo", shape: "circle", isAvatar: true, bucket: "member-photos",
+    urlFieldKey: "photo_url",
+    onRewired: (getValues) => { getPhotoValues = getValues; },
+  });
+  wirePhotoUpload({
+    fileInputId: "edit-bike-photo-upload", msgId: "edit-bike-photo-upload-msg",
+    containerId: "edit-bike-photo-widget-container", idPrefix: "edit-bike-photo",
+    label: "Bike Photo", shape: "rect", isAvatar: false, bucket: "bike-photos",
+    urlFieldKey: "bike_photo_url",
+    onRewired: (getValues) => { getBikePhotoValues = getValues; },
+  });
+
+  document.getElementById("save-btn").addEventListener("click", () => saveMember(id, () => getPhotoValues(), () => getBikePhotoValues()));
   document.getElementById("cancel-edit-btn").addEventListener("click", () => {
     if (id) openViewModal(id);
     else closeModal();
+  });
+}
+
+function wirePhotoUpload({ fileInputId, msgId, containerId, idPrefix, label, shape, isAvatar, bucket, urlFieldKey, onRewired }) {
+  const fileInput = document.getElementById(fileInputId);
+  const msgEl = document.getElementById(msgId);
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    msgEl.textContent = "Uploading…";
+    try {
+      const url = await uploadPhotoToStorage(supabase, file, bucket);
+      // Update the (hidden-ish, visible) URL text field so Save picks it up.
+      const urlField = document.querySelector(`[data-key="${urlFieldKey}"]`);
+      if (urlField) urlField.value = url;
+      // Re-render the adjust widget fresh, reset to default framing for the new photo.
+      const container = document.getElementById(containerId);
+      container.innerHTML = adjustWidgetHtml({ idPrefix, label, imgUrl: url, shape, values: { zoom: 1, x: 50, y: 50 } });
+      const getValues = wireAdjustWidget(idPrefix, { isAvatar });
+      onRewired(getValues);
+      msgEl.textContent = "Uploaded. Adjust the framing below if needed, then Save.";
+    } catch (err) {
+      msgEl.textContent = err.message || "Upload failed.";
+    }
   });
 }
 
