@@ -4,7 +4,7 @@ import { computeMemberStats, REQUIRED_STREAK } from "./streaks.js";
 import { titleCase, normalizeEmail, normalizePhone, sinceYearToYears, ridingExperienceOptionsHtml, yearsToSinceYear } from "./utils.js";
 import { openModal, closeModal } from "./modal.js";
 import { adjustWidgetHtml, wireAdjustWidget } from "./photoAdjust.js";
-import { getBirthdayNotifications, acknowledgeBirthday, refreshNavBadge } from "./notifications.js";
+import { getUpcomingBirthdays, birthdayCountdownLabel, refreshNavBadge } from "./notifications.js";
 
 let session, allSubmissions = [];
 
@@ -40,45 +40,36 @@ async function init() {
 }
 
 // ============================================================
-// NOTIFICATIONS — birthday reminders (1 day before), acknowledgeable
+// NOTIFICATIONS — always shows the next 3 upcoming birthdays; rolls
+// forward automatically as each one passes, no action needed.
 // ============================================================
 let currentBirthdayNotifs = [];
 
 async function loadNotifications() {
   const el = document.getElementById("notifications-list");
-  currentBirthdayNotifs = await getBirthdayNotifications();
+  currentBirthdayNotifs = await getUpcomingBirthdays(3);
 
   if (!currentBirthdayNotifs.length) {
-    el.innerHTML = `<p style="color:#5a5748;">Nothing to flag right now.</p>`;
+    el.innerHTML = `<p style="color:#5a5748;">No members have a date of birth on file yet.</p>`;
     return;
   }
 
-  el.innerHTML = currentBirthdayNotifs.map(({ member, notifDate }) => `
+  el.innerHTML = currentBirthdayNotifs.map(({ member, daysUntil, nextDate }) => `
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:10px;">
       <div>
-        <span class="pill pill-soon">Birthday tomorrow</span>
+        <span class="pill ${daysUntil <= 1 ? "pill-soon" : "pill-progress"}">${birthdayCountdownLabel(daysUntil)}</span>
         <strong style="margin-left:8px;">${escapeHtml(member.full_name)}</strong>
+        <span style="color:#8a8672; font-size:12.5px; margin-left:6px;">${nextDate.toLocaleDateString(undefined, { day: "2-digit", month: "short" })}</span>
       </div>
-      <div style="display:flex; gap:8px;">
-        <button class="ghost" data-wa-birthday="${member.id}">Send via WhatsApp</button>
-        <button class="gold" data-ack="${member.id}" data-date="${notifDate}">Acknowledge</button>
-      </div>
+      <button class="ghost" data-wa-birthday="${member.id}">Send via WhatsApp</button>
     </div>
   `).join("");
 
-  el.querySelectorAll("[data-ack]").forEach((btn) =>
-    btn.addEventListener("click", () => acknowledge(btn.dataset.ack, btn.dataset.date)));
   el.querySelectorAll("[data-wa-birthday]").forEach((btn) =>
     btn.addEventListener("click", () => {
       const notif = currentBirthdayNotifs.find((n) => n.member.id === btn.dataset.waBirthday);
-      if (notif) sendWhatsApp(`Reminder: it's ${notif.member.full_name}'s birthday tomorrow — Commanders LEMC UAE.`);
+      if (notif) sendWhatsApp(`Reminder: ${notif.member.full_name}'s birthday is ${birthdayCountdownLabel(notif.daysUntil).toLowerCase()} — Commanders LEMC UAE.`);
     }));
-}
-
-async function acknowledge(memberId, notifDate) {
-  await acknowledgeBirthday(memberId, notifDate, session.user.id);
-  await loadNotifications();
-  await refreshNavBadge();
 }
 
 function sendWhatsApp(text) {
@@ -91,9 +82,9 @@ async function sendWhatsAppSummary() {
   lines.push(`• ${subCountEl} new intake submission(s) awaiting review`);
   const promoCountEl = document.querySelectorAll("#promotions-list > div").length;
   lines.push(`• ${promoCountEl} member(s) ready for promotion approval`);
-  lines.push(`• ${currentBirthdayNotifs.length} birthday reminder(s) for tomorrow`);
   if (currentBirthdayNotifs.length) {
-    lines.push(...currentBirthdayNotifs.map((n) => `   – ${n.member.full_name}`));
+    lines.push(`• Upcoming birthdays:`);
+    lines.push(...currentBirthdayNotifs.map((n) => `   – ${n.member.full_name} (${birthdayCountdownLabel(n.daysUntil)})`));
   }
   sendWhatsApp(lines.join("\n"));
 }
