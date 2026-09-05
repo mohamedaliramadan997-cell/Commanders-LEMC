@@ -85,3 +85,20 @@ export function autoCorrectFields(values, fieldTypes) {
   });
   return out;
 }
+
+// ---------- Shared photo upload (used by Intake form and Master Record edit) ----------
+
+/** Uploads a photo file to a Supabase Storage bucket ('member-photos' or
+ * 'bike-photos') and returns its public URL. Throws on failure. */
+export async function uploadPhotoToStorage(supabase, file, bucket) {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(bucket).upload(path, file, {
+    cacheControl: "3600",
+    upsert: false,
+    contentType: file.type,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
+}
