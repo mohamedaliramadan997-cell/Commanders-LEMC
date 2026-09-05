@@ -11,8 +11,10 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <div class="brand">COMMANDERS<br/>LEMC</div>
-      <div class="brand-sub">UAE Chapter Platform</div>
+      <div class="brand-block">
+        <div class="brand">COMMANDERS<br/>LEMC</div>
+        <div class="brand-sub">UAE Chapter Platform</div>
+      </div>
       <nav>
         <a href="index.html">Dashboard</a>
         <a href="members.html">Master Record</a>
@@ -25,17 +27,31 @@
 
     <main class="content">
       <h1>Attendance Tracker</h1>
-      <p style="color:#5a5748; margin-top:-6px;">
-        Click a ride cell to cycle Attended → Missed → Excused → (blank).
-        Grouped Full-Batch → Prospect → Hang-around → Honor Members.
+      <p style="color:#5a5748; margin-top:-6px;" id="page-subtitle">
+        Grouped Full-Batch → Prospect → Hang-around → Honor Members. Click <strong>Edit</strong> to unlock changes.
       </p>
 
-      <div class="panel" style="display:flex; gap:10px; align-items:center;" data-admin-only>
+      <div class="panel" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <label style="margin:0;">Season:</label>
+        <select id="season-select" style="max-width:220px;"></select>
+        <span id="season-status-pill"></span>
+        <span style="flex:1;"></span>
+        <button class="ghost" id="new-season-btn" data-admin-only>Close Season &amp; Start New</button>
+      </div>
+
+      <div class="panel" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;" data-admin-only id="add-ride-panel">
         <label style="margin:0;">Add ride date:</label>
         <input id="new-ride-date" type="date" style="max-width:180px;" />
         <input id="new-ride-label" type="text" placeholder="Optional label" style="max-width:200px;" />
         <button class="gold" id="add-ride-btn">+ Add Ride</button>
         <span id="ride-msg"></span>
+      </div>
+
+      <div class="panel" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;" data-admin-only id="edit-lock-panel">
+        <button class="gold" id="edit-toggle-btn">Edit</button>
+        <button class="gold" id="save-changes-btn" style="display:none;">Save Changes</button>
+        <button class="ghost" id="discard-changes-btn" style="display:none;">Discard</button>
+        <span id="edit-status-msg" style="font-size:13px; color:#5a5748;"></span>
       </div>
 
       <div class="panel">
@@ -52,6 +68,10 @@
         <span class="pill pill-ok" style="margin-right:8px;">Green = Attended</span>
         <span class="pill pill-warn" style="margin-right:8px;">Red = Missed</span>
         <span class="pill pill-soon">Amber = Excused</span>
+        <p style="font-size:12.5px; color:#5a5748; margin-top:10px; margin-bottom:0;">
+          Streak, attendance %, and promotion status always look across every ride a member has ever
+          attended, across all seasons — only which ride columns are shown here changes per season.
+        </p>
       </div>
     </main>
   </div>
