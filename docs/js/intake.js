@@ -1,7 +1,7 @@
 import { supabase } from "./supabaseClient.js";
 import {
   titleCase, normalizeEmail, normalizePhone, collapseSpaces,
-  yearsToSinceYear, ridingExperienceOptionsHtml,
+  yearsToSinceYear, ridingExperienceOptionsHtml, uploadPhotoToStorage,
 } from "./utils.js";
 
 const MAX_PHOTO_MB = 8;
@@ -76,8 +76,8 @@ form.addEventListener("submit", async (e) => {
 
   try {
     const [photoUrl, bikePhotoUrl] = await Promise.all([
-      uploadPhoto(photoFile, "member-photos"),
-      uploadPhoto(bikePhotoFile, "bike-photos"),
+      uploadPhotoToStorage(supabase, photoFile, "member-photos"),
+      uploadPhotoToStorage(supabase, bikePhotoFile, "bike-photos"),
     ]);
 
     const values = Object.fromEntries(new FormData(form).entries());
@@ -114,14 +114,5 @@ form.addEventListener("submit", async (e) => {
 });
 
 async function uploadPhoto(file, bucket) {
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-  const path = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from(bucket).upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
-    contentType: file.type,
-  });
-  if (error) throw error;
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-  return data.publicUrl;
+  return uploadPhotoToStorage(supabase, file, bucket);
 }
