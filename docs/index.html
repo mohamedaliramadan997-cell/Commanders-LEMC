@@ -31,6 +31,7 @@
 
       <div class="panel">
         <div class="panel-title">MEMBERSHIP HEADCOUNT</div>
+        <p style="font-size:12px; color:#8a8672; margin:-8px 0 10px;">Click a box to see who's in that group.</p>
         <div class="stat-grid" id="headcount-grid">Loading…</div>
       </div>
 
@@ -40,83 +41,26 @@
       </div>
 
       <div class="panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+          <div class="panel-title" style="margin-bottom:0;">ATTENDANCE RANKING</div>
+          <button class="ghost" id="export-dashboard-btn">Export to Excel</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>#</th><th>Name</th><th>Rank</th><th>Attendance %</th></tr></thead>
+            <tbody id="ranking-body"><tr><td colspan="4">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
         <div class="panel-title">NEEDS YOUR ATTENTION</div>
         <div id="attention-list">Loading…</div>
       </div>
     </main>
   </div>
 
-  <script type="module">
-    import { supabase } from "./js/supabaseClient.js";
-    import { requireAuth, applyRoleVisibility, escapeHtml } from "./js/auth.js";
-    import { computeMemberStats, REQUIRED_STREAK } from "./js/streaks.js";
-
-    const session = await requireAuth();
-    if (session) {
-      applyRoleVisibility(session.profile.role);
-      await loadDashboard();
-    }
-
-    async function loadDashboard() {
-      const { data: members } = await supabase.from("members").select("*");
-      const { data: rides } = await supabase.from("rides").select("*").order("ride_date");
-      const { data: attendance } = await supabase.from("attendance").select("*");
-      const { data: submissions } = await supabase
-        .from("intake_submissions")
-        .select("id")
-        .eq("reviewed", false);
-
-      const levels = ["Full-Batch", "Prospect", "Hang-around", "Honor Member"];
-      const counts = Object.fromEntries(levels.map((l) => [l, 0]));
-      members.forEach((m) => { counts[m.membership_level] = (counts[m.membership_level] || 0) + 1; });
-
-      document.getElementById("headcount-grid").innerHTML =
-        levels.map((l) => statBox(counts[l] || 0, l + "s")).join("") +
-        statBox(members.length, "Total Roster");
-
-      const stats = members.map((m) => computeMemberStats(m, rides, attendance));
-      const pctValues = stats.filter((s) => s.attendancePct !== null).map((s) => s.attendancePct);
-      const avgPct = pctValues.length ? (pctValues.reduce((a, b) => a + b, 0) / pctValues.length) : 0;
-      const readyCount = stats.filter((s) => s.promotionStatus === "ready").length;
-      const soonCount = stats.filter((s) => s.promotionStatus === "soon").length;
-      const warnCount = stats.filter((s) => s.attendanceWarning).length;
-
-      document.getElementById("health-grid").innerHTML =
-        statBox((avgPct * 100).toFixed(1) + "%", "Chapter Attendance") +
-        statBox(readyCount, "Ready for Promotion") +
-        statBox(soonCount, "2 Rides Away") +
-        statBox(warnCount, "Poor-Attendance Warnings") +
-        statBox(submissions ? submissions.length : 0, "New Intake Submissions");
-
-      const attentionItems = [];
-      members.forEach((m, i) => {
-        const s = stats[i];
-        if (s.promotionStatus === "ready") {
-          attentionItems.push(pillRow(m.full_name, `Ready to promote (${s.currentStreak}/${REQUIRED_STREAK[m.membership_level]})`, "pill-ready"));
-        }
-      });
-      members.forEach((m, i) => {
-        const s = stats[i];
-        if (s.attendanceWarning) {
-          attentionItems.push(pillRow(m.full_name, `${s.currentMissStreak} consecutive misses`, "pill-warn"));
-        }
-      });
-
-      document.getElementById("attention-list").innerHTML = attentionItems.length
-        ? attentionItems.join("")
-        : `<p style="color:#5a5748;">Nothing needs review right now.</p>`;
-    }
-
-    function statBox(num, label) {
-      return `<div class="stat-box"><div class="num">${num}</div><div class="lbl">${label}</div></div>`;
-    }
-
-    function pillRow(name, detail, pillClass) {
-      return `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line);">
-        <span>${escapeHtml(name)}</span>
-        <span class="pill ${pillClass}">${escapeHtml(detail)}</span>
-      </div>`;
-    }
-  </script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script type="module" src="js/dashboard.js"></script>
 </body>
 </html>
