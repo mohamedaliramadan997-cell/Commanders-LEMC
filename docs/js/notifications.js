@@ -47,8 +47,9 @@ export function birthdayCountdownLabel(daysUntil) {
  * informational, always-on display — not an action queue item, so they
  * don't add to this badge.) */
 export async function getPendingActionCount() {
-  const [{ count: subCount }, { data: members }, { data: rides }, { data: attendance }] = await Promise.all([
+  const [{ count: subCount }, { count: updateCount }, { data: members }, { data: rides }, { data: attendance }] = await Promise.all([
     supabase.from("intake_submissions").select("id", { count: "exact", head: true }).eq("reviewed", false),
+    supabase.from("member_update_requests").select("id", { count: "exact", head: true }).eq("reviewed", false),
     supabase.from("members").select("*"),
     supabase.from("rides").select("*"),
     supabase.from("attendance").select("*"),
@@ -58,7 +59,7 @@ export async function getPendingActionCount() {
     (m) => computeMemberStats(m, rides || [], attendance || []).promotionStatus === "ready"
   ).length;
 
-  return (subCount || 0) + readyCount;
+  return (subCount || 0) + (updateCount || 0) + readyCount;
 }
 
 /** Renders/updates the red circle badge on the "Admin — Review & Approve"
