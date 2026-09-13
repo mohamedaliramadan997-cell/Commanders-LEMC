@@ -5,8 +5,9 @@ import { titleCase, normalizeEmail, normalizePhone, sinceYearToYears, ridingExpe
 import { openModal, closeModal } from "./modal.js";
 import { adjustWidgetHtml, wireAdjustWidget } from "./photoAdjust.js";
 import { getUpcomingBirthdays, birthdayCountdownLabel, refreshNavBadge } from "./notifications.js";
+import { exportToExcel } from "./exportExcel.js";
 
-let session, allSubmissions = [];
+let session, allSubmissions = [], allUpdateRequests = [];
 
 const SUBMISSION_FIELDS = [
   ["full_name", "Full Name", "name"],
@@ -23,6 +24,16 @@ const SUBMISSION_FIELDS = [
   ["emergency_contact_mobile", "Emergency Contact — Mobile", "phone"],
 ];
 
+const UPDATE_REQUEST_FIELDS = [
+  ["city", "City"], ["neighborhood", "Neighborhood"],
+  ["mobile", "Mobile Number"], ["whatsapp", "WhatsApp Number"], ["email", "Email"],
+  ["date_of_birth", "Date of Birth"],
+  ["bike_model", "Bike Model"], ["profession", "Profession / Occupation"],
+  ["emergency_contact_name", "Emergency Contact — Name"],
+  ["emergency_contact_relation", "Emergency Contact — Relation"],
+  ["emergency_contact_mobile", "Emergency Contact — Mobile"],
+];
+
 init();
 
 async function init() {
@@ -36,7 +47,8 @@ async function init() {
   }
   document.getElementById("admin-body").style.display = "block";
   document.getElementById("whatsapp-summary-btn").addEventListener("click", sendWhatsAppSummary);
-  await Promise.all([loadNotifications(), loadSubmissions(), loadPromotions(), loadProfiles()]);
+  document.getElementById("export-admin-btn").addEventListener("click", exportAdminData);
+  await Promise.all([loadNotifications(), loadSubmissions(), loadUpdateRequests(), loadPromotions(), loadProfiles()]);
 }
 
 // ============================================================
@@ -80,6 +92,8 @@ async function sendWhatsAppSummary() {
   const lines = ["Commanders LEMC — UAE Chapter — Admin summary:"];
   const subCountEl = document.querySelectorAll("#submissions-list > div").length;
   lines.push(`• ${subCountEl} new intake submission(s) awaiting review`);
+  const updateCountEl = document.querySelectorAll("#update-requests-list > div").length;
+  lines.push(`• ${updateCountEl} member update request(s) awaiting review`);
   const promoCountEl = document.querySelectorAll("#promotions-list > div").length;
   lines.push(`• ${promoCountEl} member(s) ready for promotion approval`);
   if (currentBirthdayNotifs.length) {
@@ -240,6 +254,164 @@ async function dismissSubmission(id) {
 }
 
 // ============================================================
+// PENDING MEMBER UPDATES — self-update link submissions, reviewed
+// before anything touches the real Master Record row.
+// ============================================================
+async function loadUpdateRequests() {
+  const { data, error } = await supabase
+    .from("member_update_requests")
+    .select(`*, members (
+      full_name, membership_level, city, neighborhood, mobile, whatsapp, email,
+      date_of_birth, bike_model, profession, riding_since_year,
+      emergency_contact_name, emergency_contact_relation, emergency_contact_mobile,
+      photo_url, bike_photo_url, photo_zoom, photo_pos_x, photo_pos_y,
+      bike_photo_zoom, bike_photo_pos_x, bike_photo_pos_y
+    )`)
+    .eq("reviewed", false)
+    .order("submitted_at", { ascending: false });
+
+  const el = document.getElementById("update-requests-list");
+  if (error) { el.innerHTML = `<div class="msg msg-error">${error.message}</div>`; return; }
+  allUpdateRequests = data || [];
+  if (!allUpdateRequests.length) { el.innerHTML = `<p style="color:#5a5748;">No pending updates.</p>`; return; }
+
+  el.innerHTML = allUpdateRequests.map((r) => `
+    <div class="update-request-row" data-id="${r.id}" style="display:flex; gap:14px; align-items:center; border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:10px; cursor:pointer;">
+      ${r.photo_url ? `<img src="${r.photo_url}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;" />` : `<div style="width:48px;height:48px;border-radius:50%;background:var(--charcoal);flex-shrink:0;"></div>`}
+      <div style="flex:1;">
+        <strong>${escapeHtml(r.members.full_name)}</strong>
+        <div style="font-size:12px; color:#5a5748;">Submitted ${new Date(r.submitted_at).toLocaleDateString()} — tap to review changes →</div>
+      </div>
+    </div>
+  `).join("");
+
+  el.querySelectorAll(".update-request-row").forEach((row) =>
+    row.addEventListener("click", () => openUpdateRequestModal(row.dataset.id)));
+}
+
+function diffRowHtml(label, key, currentVal, proposedVal, inputType = "text") {
+  const changed = (proposedVal ?? "") !== (currentVal ?? "");
+  return `
+    <div class="field full" style="${changed ? "background:var(--amber-bg); border-radius:4px; padding:6px 8px;" : ""}">
+      <div class="k">${label}${changed ? " (changed)" : ""}</div>
+      <div style="display:flex; gap:12px; align-items:center; margin-top:4px;">
+        <div style="flex:1; font-size:12.5px; color:#8a8672;">Current: ${currentVal ? escapeHtml(String(currentVal)) : "—"}</div>
+        <div style="flex:1;"><input data-key="${key}" type="${inputType}" value="${escapeHtml(proposedVal ?? "")}" /></div>
+      </div>
+    </div>`;
+}
+
+function openUpdateRequestModal(id) {
+  const r = allUpdateRequests.find((x) => x.id === id);
+  if (!r) return;
+  const cur = r.members;
+
+  const fieldsHtml = UPDATE_REQUEST_FIELDS.map(([key, label]) =>
+    diffRowHtml(label, key, cur[key], r[key], key === "date_of_birth" ? "date" : "text")
+  ).join("");
+
+  const currentYears = cur.riding_since_year != null ? sinceYearToYears(cur.riding_since_year) : null;
+  const proposedYears = r.riding_since_year != null ? sinceYearToYears(r.riding_since_year) : currentYears;
+
+  openModal(`
+    <h2>Review Changes — ${escapeHtml(cur.full_name)}</h2>
+    <p style="color:#5a5748; font-size:12.5px;">Submitted ${new Date(r.submitted_at).toLocaleDateString()}. Amber rows are what changed — edit the proposed value on the right if needed before approving.</p>
+
+    <div class="form-grid" style="margin:14px 0;">
+      <div>
+        <label>Personal Photo</label>
+        <div style="display:flex; gap:8px; margin-bottom:6px;">
+          <div style="text-align:center; font-size:11px; color:#8a8672;">
+            ${cur.photo_url ? `<img src="${cur.photo_url}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;" />` : ""}<br/>Current
+          </div>
+        </div>
+        ${adjustWidgetHtml({ idPrefix: "req-photo", label: "Proposed", imgUrl: r.photo_url || cur.photo_url, shape: "circle", values: { zoom: r.photo_zoom, x: r.photo_pos_x, y: r.photo_pos_y } })}
+      </div>
+      <div>
+        <label>Bike Photo</label>
+        <div style="margin-bottom:6px; font-size:11px; color:#8a8672;">
+          ${cur.bike_photo_url ? `<img src="${cur.bike_photo_url}" style="width:100%; max-height:90px; object-fit:cover; border-radius:4px;" />` : ""} Current
+        </div>
+        ${adjustWidgetHtml({ idPrefix: "req-bike-photo", label: "Proposed", imgUrl: r.bike_photo_url || cur.bike_photo_url, shape: "rect", values: { zoom: r.bike_photo_zoom, x: r.bike_photo_pos_x, y: r.bike_photo_pos_y } })}
+      </div>
+    </div>
+
+    <div class="form-grid">
+      ${fieldsHtml}
+      <div class="field full" style="${proposedYears !== currentYears ? "background:var(--amber-bg); border-radius:4px; padding:6px 8px;" : ""}">
+        <div class="k">Riding Experience${proposedYears !== currentYears ? " (changed)" : ""}</div>
+        <div style="display:flex; gap:12px; align-items:center; margin-top:4px;">
+          <div style="flex:1; font-size:12.5px; color:#8a8672;">Current: ${currentYears !== null ? currentYears + " yrs" : "—"}</div>
+          <div style="flex:1;"><select data-key="riding_since_year" id="req-riding-years">${ridingExperienceOptionsHtml(proposedYears)}</select></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="update-request-msg"></div>
+    <div class="modal-actions">
+      <button class="gold" id="approve-update-btn">Approve &amp; Apply to Master Record</button>
+      <button class="ghost" id="dismiss-update-btn" style="color:var(--red); border-color:var(--red);">Dismiss</button>
+      <button class="ghost" id="close-update-btn">Close</button>
+    </div>
+  `);
+
+  const getPhotoValues = wireAdjustWidget("req-photo", { isAvatar: true });
+  const getBikePhotoValues = wireAdjustWidget("req-bike-photo");
+
+  document.getElementById("approve-update-btn").addEventListener("click", () => approveUpdateRequest(r, getPhotoValues, getBikePhotoValues));
+  document.getElementById("dismiss-update-btn").addEventListener("click", () => confirmDismissUpdate(r));
+  document.getElementById("close-update-btn").addEventListener("click", () => closeModal());
+}
+
+function confirmDismissUpdate(r) {
+  const msg = document.getElementById("update-request-msg");
+  msg.innerHTML = `
+    <div class="delete-confirm-box">
+      <p>Dismiss ${escapeHtml(r.members.full_name)}'s update request without applying it?</p>
+      <button class="danger" id="confirm-dismiss-update-btn">Yes, dismiss</button>
+      <button class="ghost" id="cancel-dismiss-update-btn">Cancel</button>
+    </div>`;
+  document.getElementById("confirm-dismiss-update-btn").addEventListener("click", () => dismissUpdateRequest(r.id));
+  document.getElementById("cancel-dismiss-update-btn").addEventListener("click", () => { msg.innerHTML = ""; });
+}
+
+async function approveUpdateRequest(r, getPhotoValues, getBikePhotoValues) {
+  const overlay = document.getElementById("shared-modal-overlay");
+  const payload = {};
+  overlay.querySelectorAll("[data-key]").forEach((el) => {
+    if (el.dataset.key === "riding_since_year") {
+      payload.riding_since_year = el.value === "" ? null : yearsToSinceYear(el.value);
+      return;
+    }
+    const v = el.value.trim();
+    payload[el.dataset.key] = v === "" ? null : v;
+  });
+  const photoVals = getPhotoValues();
+  const bikeVals = getBikePhotoValues();
+  payload.photo_url = r.photo_url || r.members.photo_url;
+  payload.bike_photo_url = r.bike_photo_url || r.members.bike_photo_url;
+  payload.photo_zoom = photoVals.zoom; payload.photo_pos_x = photoVals.x; payload.photo_pos_y = photoVals.y;
+  payload.bike_photo_zoom = bikeVals.zoom; payload.bike_photo_pos_x = bikeVals.x; payload.bike_photo_pos_y = bikeVals.y;
+
+  const { error } = await supabase.from("members").update(payload).eq("id", r.member_id);
+  if (error) {
+    document.getElementById("update-request-msg").innerHTML = `<div class="msg msg-error">${error.message}</div>`;
+    return;
+  }
+  await supabase.from("member_update_requests").update({ reviewed: true }).eq("id", r.id);
+  closeModal();
+  await loadUpdateRequests();
+  await refreshNavBadge();
+}
+
+async function dismissUpdateRequest(id) {
+  await supabase.from("member_update_requests").update({ reviewed: true }).eq("id", id);
+  closeModal();
+  await loadUpdateRequests();
+  await refreshNavBadge();
+}
+
+// ============================================================
 // PROMOTION APPROVAL — feeds the same membership_level field that
 // Master Record's rank dropdown edits, so both stay in sync automatically.
 // ============================================================
@@ -283,6 +455,47 @@ async function approvePromotion(memberId, nextLevel) {
   if (error) { alert(error.message); return; }
   await loadPromotions();
   await refreshNavBadge();
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+async function exportAdminData() {
+  const submissionRows = allSubmissions.map((s) => ({
+    "Full Name": s.full_name, "Mobile": s.mobile || "", "City": s.city || "",
+    "Email": s.email || "", "Bike Model": s.bike_model || "",
+    "Submitted": new Date(s.submitted_at).toLocaleDateString(),
+  }));
+
+  const [{ data: members }, { data: rides }, { data: attendance }] = await Promise.all([
+    supabase.from("members").select("*"),
+    supabase.from("rides").select("*"),
+    supabase.from("attendance").select("*"),
+  ]);
+  const promoRows = (members || [])
+    .map((m) => ({ m, stats: computeMemberStats(m, rides || [], attendance || []) }))
+    .filter((x) => x.stats.promotionStatus === "ready")
+    .map(({ m, stats }) => ({
+      "Name": m.full_name, "Current Rank": m.membership_level,
+      "Streak": `${stats.currentStreak}/${REQUIRED_STREAK[m.membership_level]}`,
+    }));
+
+  const birthdayRows = currentBirthdayNotifs.map(({ member, daysUntil, nextDate }) => ({
+    "Name": member.full_name,
+    "Next Birthday": nextDate.toLocaleDateString(),
+    "Countdown": birthdayCountdownLabel(daysUntil),
+  }));
+
+  const updateRows = allUpdateRequests.map((r) => ({
+    "Name": r.members.full_name, "Submitted": new Date(r.submitted_at).toLocaleDateString(),
+  }));
+
+  exportToExcel(`Commanders_LEMC_Admin_${new Date().toISOString().slice(0, 10)}.xlsx`, [
+    { name: "New Submissions", rows: submissionRows },
+    { name: "Pending Member Updates", rows: updateRows },
+    { name: "Ready for Promotion", rows: promoRows },
+    { name: "Upcoming Birthdays", rows: birthdayRows },
+  ]);
 }
 
 // ============================================================
