@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Update Your Info — Commanders LEMC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  .logo-wrap { display:flex; justify-content:center; margin-bottom: 14px; }
+  .logo-wrap img { width: 100px; height: 100px; object-fit: contain; border-radius: 50%; }
+</style>
+</head>
+<body>
+  <div class="public-wrap">
+    <div class="public-card" style="max-width: 620px;">
+      <div class="logo-wrap">
+        <img src="assets/logo.png" onerror="this.onerror=null;this.src='assets/logo-placeholder.svg';" alt="Commanders LEMC logo" />
+      </div>
+      <div id="loading-state">
+        <p style="text-align:center; color:#5a5748;">Loading your info…</p>
+      </div>
+
+      <div id="invalid-state" style="display:none; text-align:center;">
+        <h1>Link Not Found</h1>
+        <p style="color:#5a5748;">This update link isn't valid or may have been regenerated. Please contact the Secretary for a new one.</p>
+      </div>
+
+      <form id="update-form" style="display:none;" novalidate>
+        <h1 id="member-name-heading" style="text-align:center;"></h1>
+        <p id="member-rank-sub" style="text-align:center; color:#5a5748; font-size:13px; margin-top:-8px;"></p>
+
+        <div class="form-grid" style="margin: 18px 0;">
+          <div>
+            <div id="photo-widget-container"></div>
+          </div>
+          <div>
+            <div id="bike-photo-widget-container"></div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div><label>Mobile Number</label><input name="mobile" data-type="phone" /></div>
+          <div><label>WhatsApp Number</label><input name="whatsapp" data-type="phone" /></div>
+          <div class="full"><label>Email</label><input name="email" type="email" data-type="email" /></div>
+          <div><label>City</label><input name="city" data-type="name" /></div>
+          <div><label>Neighborhood</label><input name="neighborhood" data-type="name" /></div>
+          <div><label>Date of Birth</label><input name="date_of_birth" type="date" /></div>
+          <div><label>Riding Experience</label><select name="riding_years" id="riding_years"></select></div>
+          <div class="full"><label>Bike Model</label><input name="bike_model" data-type="name" placeholder="Brand, Model, Year" /></div>
+          <div class="full"><label>Profession / Occupation</label><input name="profession" data-type="name" /></div>
+          <div><label>Emergency Contact — Name</label><input name="emergency_contact_name" data-type="name" /></div>
+          <div><label>Emergency Contact — Relation</label><input name="emergency_contact_relation" data-type="name" /></div>
+          <div class="full"><label>Emergency Contact — Mobile</label><input name="emergency_contact_mobile" data-type="phone" /></div>
+        </div>
+
+        <button type="submit" class="gold" style="width:100%; margin-top:20px;">Save My Info</button>
+        <div id="msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="js/update.js"></script>
+</body>
+</html>
