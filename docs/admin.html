@@ -32,6 +32,10 @@
       </div>
 
       <div id="admin-body" style="display:none;">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:6px;">
+          <button class="ghost" id="export-admin-btn">Export to Excel</button>
+        </div>
+
         <div class="panel">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
             <div class="panel-title" style="margin-bottom:0;">NOTIFICATIONS</div>
@@ -43,6 +47,12 @@
         <div class="panel">
           <div class="panel-title">NEW INTAKE SUBMISSIONS</div>
           <div id="submissions-list">Loading…</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">PENDING MEMBER UPDATES</div>
+          <p style="color:#5a5748; font-size:12.5px; margin-top:-6px;">Changes members submitted via their self-update link — nothing below is live until you approve it.</p>
+          <div id="update-requests-list">Loading…</div>
         </div>
 
         <div class="panel">
@@ -69,6 +79,7 @@
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script type="module" src="js/admin.js"></script>
 </body>
 </html>
