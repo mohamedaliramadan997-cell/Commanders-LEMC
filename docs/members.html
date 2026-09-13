@@ -43,23 +43,29 @@
             <option>Honor Member</option>
           </select>
           <span style="flex:1;"></span>
+          <button class="ghost" id="export-btn">Export to Excel</button>
           <button class="gold" id="add-btn" data-admin-only>+ Add Member</button>
         </div>
         <div class="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Name</th><th>Rank</th><th>Title</th><th>City</th>
+                <th>Notes</th>
+                <th data-sort="full_name" style="cursor:pointer;">Name <span class="sort-arrow"></span></th>
+                <th data-sort="membership_level" style="cursor:pointer;">Rank <span class="sort-arrow"></span></th>
+                <th data-sort="officer_title" style="cursor:pointer;">Title <span class="sort-arrow"></span></th>
+                <th>City</th>
                 <th>Mobile</th><th>WhatsApp</th><th>Email</th><th>Bike</th>
               </tr>
             </thead>
-            <tbody id="members-body"><tr><td colspan="8">Loading…</td></tr></tbody>
+            <tbody id="members-body"><tr><td colspan="9">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script type="module" src="js/members.js"></script>
 </body>
 </html>
