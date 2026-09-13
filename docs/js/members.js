@@ -3,8 +3,10 @@ import { requireAuth, applyRoleVisibility, escapeHtml } from "./auth.js";
 import { ridingExperienceOptionsHtml, yearsToSinceYear, sinceYearToYears, uploadPhotoToStorage } from "./utils.js";
 import { openModal, setModalContent, closeModal } from "./modal.js";
 import { photoStyle, adjustWidgetHtml, wireAdjustWidget } from "./photoAdjust.js";
+import { exportToExcel } from "./exportExcel.js";
 
 const LEVELS = ["Hang-around", "Prospect", "Full-Batch", "Honor Member"];
+const LEVEL_ORDER_MAP = { "Full-Batch": 0, "Prospect": 1, "Hang-around": 2, "Honor Member": 3 };
 
 const EDIT_FIELDS = [
   ["full_name", "Full Name", "text", "full"],
@@ -29,6 +31,7 @@ const EDIT_FIELDS = [
 ];
 
 let session, allMembers = [];
+let sortColumn = "full_name", sortDir = "asc";
 
 init();
 
@@ -43,6 +46,23 @@ async function init() {
   document.getElementById("search").addEventListener("input", render);
   document.getElementById("filter-level").addEventListener("change", render);
   document.getElementById("add-btn").addEventListener("click", () => openEditModal(null));
+  document.getElementById("export-btn").addEventListener("click", exportCurrentView);
+
+  document.querySelectorAll("[data-sort]").forEach((th) => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.sort;
+      if (sortColumn === col) sortDir = sortDir === "asc" ? "desc" : "asc";
+      else { sortColumn = col; sortDir = "asc"; }
+      render();
+    });
+  });
+
+  // Optional ?level=Full-Batch (or similar) query param, e.g. from Dashboard links
+  const params = new URLSearchParams(window.location.search);
+  const levelParam = params.get("level");
+  if (levelParam && LEVELS.includes(levelParam)) {
+    document.getElementById("filter-level").value = levelParam;
+  }
 
   document.getElementById("edit-panel")?.remove(); // old inline panel no longer used
 
@@ -56,20 +76,42 @@ async function load() {
   render();
 }
 
+function sortRows(rows) {
+  const dir = sortDir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    if (sortColumn === "membership_level") {
+      return (LEVEL_ORDER_MAP[a.membership_level] - LEVEL_ORDER_MAP[b.membership_level]) * dir;
+    }
+    const av = (a[sortColumn] || "").toString().toLowerCase();
+    const bv = (b[sortColumn] || "").toString().toLowerCase();
+    return av.localeCompare(bv) * dir;
+  });
+}
+
+function updateSortArrows() {
+  document.querySelectorAll("[data-sort]").forEach((th) => {
+    const arrow = th.querySelector(".sort-arrow");
+    arrow.textContent = th.dataset.sort === sortColumn ? (sortDir === "asc" ? "▲" : "▼") : "";
+  });
+}
+
 function render() {
   const q = document.getElementById("search").value.trim().toLowerCase();
   const lvl = document.getElementById("filter-level").value;
-  const rows = allMembers.filter((m) =>
+  let rows = allMembers.filter((m) =>
     (!q || m.full_name.toLowerCase().includes(q)) && (!lvl || m.membership_level === lvl)
   );
+  rows = sortRows(rows);
+  updateSortArrows();
 
   const body = document.getElementById("members-body");
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="8">No members match.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9">No members match.</td></tr>`;
     return;
   }
   body.innerHTML = rows.map((m) => `
     <tr data-id="${m.id}" style="cursor:pointer;">
+      <td style="max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(m.notes || "")}">${escapeHtml(m.notes || "")}</td>
       <td><strong>${escapeHtml(m.full_name)}</strong></td>
       <td>${escapeHtml(m.membership_level)}</td>
       <td>${escapeHtml(m.officer_title || "")}</td>
@@ -84,6 +126,41 @@ function render() {
   body.querySelectorAll("tr").forEach((tr) => {
     tr.addEventListener("click", () => openViewModal(tr.dataset.id));
   });
+}
+
+function exportCurrentView() {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const lvl = document.getElementById("filter-level").value;
+  let rows = allMembers.filter((m) =>
+    (!q || m.full_name.toLowerCase().includes(q)) && (!lvl || m.membership_level === lvl)
+  );
+  rows = sortRows(rows);
+
+  const exportRows = rows.map((m) => ({
+    "Full Name": m.full_name,
+    "Membership Level": m.membership_level,
+    "Officer Title": m.officer_title || "",
+    "City": m.city || "",
+    "Neighborhood": m.neighborhood || "",
+    "Mobile": m.mobile || "",
+    "WhatsApp": m.whatsapp || "",
+    "Email": m.email || "",
+    "Date of Birth": m.date_of_birth || "",
+    "Riding Experience (yrs)": sinceYearToYears(m.riding_since_year) ?? "",
+    "Bike Model": m.bike_model || "",
+    "Profession": m.profession || "",
+    "Date Joined": m.date_joined || "",
+    "Promotion → Prospect": m.promotion_date_prospect || "",
+    "Promotion → Full-Batch": m.promotion_date_fullbatch || "",
+    "Emergency Contact Name": m.emergency_contact_name || "",
+    "Emergency Contact Relation": m.emergency_contact_relation || "",
+    "Emergency Contact Mobile": m.emergency_contact_mobile || "",
+    "Notes": m.notes || "",
+  }));
+
+  exportToExcel(`Commanders_LEMC_Master_Record_${new Date().toISOString().slice(0, 10)}.xlsx`, [
+    { name: "Master Record", rows: exportRows },
+  ]);
 }
 
 // ============================================================
@@ -145,12 +222,32 @@ function viewHtml(m) {
         : `<div class="no-photo">No bike photo uploaded</div>`}
     </div>
 
+    <div class="panel" data-admin-only style="margin-top:16px; background:var(--cream);">
+      <div class="panel-title">SELF-UPDATE LINK</div>
+      <div id="update-link-zone">
+        ${m.update_token
+          ? `<p style="font-size:13px; color:#5a5748; margin-bottom:8px;">Share this with ${escapeHtml(m.full_name)} so they can submit updates to their contact info, bike details, and photos — no login needed. Their changes land in <strong>Admin → Pending Member Updates</strong> for your review before anything goes live.</p>
+             <input readonly id="update-link-input" value="${updateLinkUrl(m.update_token)}" style="margin-bottom:8px;" onclick="this.select()" />
+             <div style="display:flex; gap:8px; flex-wrap:wrap;">
+               <button class="gold" id="copy-link-btn">Copy Link</button>
+               <button class="ghost" id="wa-link-btn">Send via WhatsApp</button>
+               <button class="ghost" id="regen-link-btn">Regenerate (invalidates old link)</button>
+             </div>`
+          : `<p style="font-size:13px; color:#5a5748; margin-bottom:8px;">Generate a private link ${escapeHtml(m.full_name)} can use to update their own info without needing a login.</p>
+             <button class="gold" id="gen-link-btn">Generate Update Link</button>`}
+      </div>
+    </div>
+
     <div class="modal-actions" data-admin-only>
       <button class="gold" id="modal-edit-btn">Edit</button>
       <button class="ghost" id="modal-delete-btn" style="color:var(--red); border-color:var(--red);">Delete Record</button>
     </div>
     <div id="delete-zone"></div>
   `;
+}
+
+function updateLinkUrl(token) {
+  return `${window.location.origin}${window.location.pathname.replace(/members\.html$/, "")}update.html?token=${token}`;
 }
 
 function wireViewActions(m) {
@@ -171,6 +268,29 @@ function wireViewActions(m) {
       document.getElementById("delete-zone").innerHTML = "";
     });
   });
+
+  document.getElementById("gen-link-btn")?.addEventListener("click", () => generateUpdateLink(m));
+  document.getElementById("regen-link-btn")?.addEventListener("click", () => {
+    if (confirm("Regenerate this link? The old link will stop working immediately.")) generateUpdateLink(m);
+  });
+  document.getElementById("copy-link-btn")?.addEventListener("click", () => {
+    const input = document.getElementById("update-link-input");
+    input.select();
+    navigator.clipboard?.writeText(input.value);
+  });
+  document.getElementById("wa-link-btn")?.addEventListener("click", () => {
+    const url = updateLinkUrl(m.update_token);
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`Hi ${m.full_name}, please update your Commanders LEMC info here: ${url}`)}`, "_blank");
+  });
+}
+
+async function generateUpdateLink(m) {
+  const token = crypto.randomUUID();
+  const { error } = await supabase.from("members").update({ update_token: token }).eq("id", m.id);
+  if (error) { alert(error.message); return; }
+  m.update_token = token;
+  await load();
+  openViewModal(m.id);
 }
 
 async function deleteMember(id) {
