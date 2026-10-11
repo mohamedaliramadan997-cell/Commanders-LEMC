@@ -31,38 +31,57 @@
         Grouped Full-Batch → Prospect → Hang-around → Honor Members. Click <strong>Edit</strong> to unlock changes.
       </p>
 
-      <div class="panel" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <label style="margin:0;">Season:</label>
-        <select id="season-select" style="max-width:220px;"></select>
-        <span id="season-status-pill"></span>
-        <span style="flex:1;"></span>
-        <button class="ghost" id="export-attendance-btn">Export to Excel</button>
-        <button class="ghost" id="new-season-btn" data-admin-only>Close Season &amp; Start New</button>
+      <div class="panel att-top">
+        <div class="att-top-row">
+          <label for="season-select" class="att-inline-label">Season</label>
+          <select id="season-select" class="att-season"></select>
+          <span id="season-status-pill"></span>
+          <span class="spacer"></span>
+          <div class="menu-wrap">
+            <button class="ghost" id="export-btn" aria-haspopup="true" aria-expanded="false" aria-controls="export-menu">Export ▾</button>
+            <div class="menu" id="export-menu" role="menu" hidden>
+              <button role="menuitem" data-export="xlsx">Excel (.xlsx)</button>
+              <button role="menuitem" data-export="pdf">PDF (portrait)</button>
+            </div>
+          </div>
+          <button class="ghost" id="new-season-btn" data-admin-only>Close Season &amp; Start New</button>
+        </div>
       </div>
 
-      <div class="panel" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;" data-admin-only id="add-ride-panel">
-        <label style="margin:0;">Add ride date:</label>
-        <input id="new-ride-date" type="date" style="max-width:180px;" />
-        <input id="new-ride-label" type="text" placeholder="Optional label" style="max-width:200px;" />
-        <button class="gold" id="add-ride-btn">+ Add Ride</button>
-        <span id="ride-msg"></span>
+      <details class="panel att-add" style="display:none;" data-admin-only id="add-ride-panel">
+        <summary>＋ Add a ride</summary>
+        <div class="att-top-row" style="margin-top:12px;">
+          <label for="new-ride-date" class="att-inline-label">Add ride</label>
+          <input id="new-ride-date" type="date" class="att-field" />
+          <input id="new-ride-label" type="text" placeholder="Optional label" class="att-field" />
+          <button class="gold" id="add-ride-btn">+ Add Ride</button>
+          <span id="ride-msg" role="status"></span>
+        </div>
+      </details>
+
+      <div class="att-toolbar" id="att-toolbar">
+        <div class="att-chips" id="rank-chips" role="group" aria-label="Filter by rank"></div>
+      </div>
+      <div class="att-tools-row">
+          <input id="att-search" type="search" placeholder="Search name…" aria-label="Search by name" />
+          <select id="att-sort" aria-label="Sort members by">
+            <option value="rank">Rank order</option>
+            <option value="name">Name A–Z</option>
+            <option value="title">Officer title</option>
+            <option value="pct">Attendance % ↓</option>
+          </select>
       </div>
 
-      <div class="panel" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;" data-admin-only id="edit-lock-panel">
+      <div class="panel edit-bar" style="display:none;" data-admin-only id="edit-lock-panel">
         <button class="gold" id="edit-toggle-btn">Edit</button>
         <button class="gold" id="save-changes-btn" style="display:none;">Save Changes</button>
         <button class="ghost" id="discard-changes-btn" style="display:none;">Discard</button>
-        <span id="edit-status-msg" style="font-size:13px; color:#5a5748;"></span>
+        <span id="edit-status-msg" role="status"></span>
       </div>
 
-      <div class="panel">
-        <div class="table-scroll">
-          <table id="attendance-table">
-            <thead><tr id="table-head"></tr></thead>
-            <tbody id="table-body"><tr><td>Loading…</td></tr></tbody>
-          </table>
-        </div>
-      </div>
+      <div class="panel" id="ride-manage" style="display:none;"></div>
+
+      <div id="att-root" class="att-root" aria-live="polite"><p style="padding:16px;">Loading…</p></div>
 
       <div class="panel">
         <div class="panel-title">LEGEND</div>
@@ -70,14 +89,14 @@
         <span class="pill pill-warn" style="margin-right:8px;">Red = Missed</span>
         <span class="pill pill-soon">Amber = Excused</span>
         <p style="font-size:12.5px; color:#5a5748; margin-top:10px; margin-bottom:0;">
-          Streak, attendance %, and promotion status always look across every ride a member has ever
-          attended, across all seasons — only which ride columns are shown here changes per season.
+          <strong>Attended / Total / %</strong> count the rides of the selected season only (Total = attended + missed;
+          excused and not-yet-marked rides are left out). Streak, promotion status and warnings always look across every
+          season. Colour is never the only clue — each ride also shows ✓ attended, ✗ missed, E excused, or – (before the member joined).
         </p>
       </div>
     </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script type="module" src="js/attendance.js"></script>
 </body>
 </html>
